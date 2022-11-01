@@ -1,0 +1,63 @@
+Memory map for Mosix 3c
+
+Physical memory:
+Address		Size		Usage
+0x0			0x800		BIOS
+0x1000		0x1000		Kernel PML4
+0x2000		0x1000		Kernel PDPT
+0x3000		0x1000		Kernel PD 0
+0x4000		0x1000		Kernel PT 0
+0x5000		0x1000		Kernel PT 1
+0x6000		0x1000		Kernel PT 2
+0x7000		0x2000		Legacy boot text & stack
+0x9000		0x1000		Global IDT
+0xa000		0x1000		Global GDT
+0xc000		0x4000		Kernel bss	(init as 0)
+0x10000		0x20000		Kernel text
+0x30000		0x20000		Archive
+0x50000		0x2000		Bootstub PD+PT
+0x54000		0x4000		Kernel stack
+0x58000		0x8000		Boot arguments
+0x60000		0x800		pmem extents
+0x60800		0x800		kheap extents
+0x61000		0x1000		Processors
+0x68000		0x8000		AP initial stack (2k per cpu)
+0x70000		0x3e00		pidmap
+0x73e00		0x200		proc bitmap
+0x80000		0x1c000		kheap initial space
+1m			~
+
+Virtual memory (kernel):
+Address					Size		Usage
+0x7000					0x2000		Paging enabling stub
+0xffffff80`00000000		0x20000		Kernel text
+0xffffff80`00020000		0x20000		Archive
+0xffffff80`00040000		0x4000		Kernel bss
+0xffffff80`00044000		0x4000		Kernel stack
+0xffffff80`00048000		0x8000		Boot arguments
+0xffffff80`00050000		0x1000		Kernel PML4
+0xffffff80`00051000		0x2000		IDT+GDT
+0xffffff80`00053000		0x800		pmem freelist
+0xffffff80`00053800		0x800		kheap flist extents
+0xffffff80`00054000		0x1000		HPET mapped-io (backup)
+0xffffff80`00055000		0x2000		IOAPIC & LAPIC
+0xffffff80`00057000		0x2000		ACPI tables (RSDT + MADT)
+0xffffff80`00059000		0x1000		Processors
+0xffffff80`0005a000		0x8000		AP stacks
+0xffffff80`00062000		0x4000		Process idmap & bitmap
+0xffffff80`00066000		0x1000		CGA
+0xffffff80`00200000		0x200000	kheap
+0xffffff80`00400000		4g-4m		As-is mapping area
+
+Paging scheme:
+In virtual memory
+	User space
+		0 - 0x7ffd`ffffffff 128T-8G
+			for user use
+		0x7ffe`00000000 - LIMIT 8G
+			for libraries use
+	Kernel space
+		0 - 0x60000 284K
+			for kernel (unswapable, 'cuz always in use)
+		0x200000 - 0x400000 2M
+			for kheap (unswapable, 'cuz often in use)

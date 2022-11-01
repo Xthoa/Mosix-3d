@@ -1,0 +1,16 @@
+/bochsout.txt
+*.d
+*.x
+*.o
+*.pe
+*.elf
+*.bxrc
+kernel.elf
+archive.tar
+boot.bin
+*.exe
+*.drv
+*.dll
+/mosix.img
+/cloc.txt
+/note.txt
