@@ -78,6 +78,7 @@ mov [driveno], dl
 
 KernelSectors equ 38
 ArchiveSectors equ 2
+ArchivePosition equ 68
 
 mov cx,0x7e0
 mov di,1
@@ -88,9 +89,12 @@ mov di,4
 mov si,KernelSectors
 call read_media
 mov cx,0x3000
-mov di,40
+mov di,ArchivePosition
 mov si,ArchiveSectors
 call read_media
+mov ax,0
+mov [es:0x200],ax
+mov es,ax
 jmp afterread
 
 read_media:
@@ -145,11 +149,10 @@ lba2chs_fdd:
     inc cl
     ret
 
-afterread:
-mov ax,0
-mov es,ax
 
 Bootseg equ 0x5800
+
+afterread:
 
 ; call set_video_mode16
 call probe_memory16
@@ -185,7 +188,7 @@ mov ecx,0x6000/4
 rep stosd
 mov edi,0xc000
 mov ecx,0x1000/4
-rep movsd
+rep stosd
 mov esi,GDT
 mov edi,0xa000
 mov ecx,9*8/4

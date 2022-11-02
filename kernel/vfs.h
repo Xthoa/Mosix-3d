@@ -97,6 +97,9 @@ void destroy_fstype(Filesystem* tp);
 Superblock* create_superblock(Filesystem* tp);
 void destroy_superblock(Superblock* sb);
 
+Node* create_subnode(Node* father, const char* name, u32 flag);
+void destroy_subnode(Node* child);
+
 Superblock* mount_sb(char* fstype, Node* dev);
 void unmount_sb(Superblock* sb);
 int mount_on(char* path, char* fstype, Node* dev);

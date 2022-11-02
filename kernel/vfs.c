@@ -33,7 +33,7 @@ PRIVATE void del_node_child(Node* child){
 	else child->prev->next = child->next;
 	if(child->next) child->next->prev = child->prev;
 }
-PRIVATE Node* create_subnode(Node* father, const char* name, u32 flag){
+PUBLIC Node* create_subnode(Node* father, const char* name, u32 flag){
     Node* child = alloc_node(name, flag);
     add_node_child(father, child);
 	if(child->sb){
@@ -42,7 +42,7 @@ PRIVATE Node* create_subnode(Node* father, const char* name, u32 flag){
     }
 	return child;
 }
-PRIVATE void destroy_subnode(Node* child){
+PUBLIC void destroy_subnode(Node* child){
     del_node_child(child);
     free_node(child);
 }
@@ -125,7 +125,7 @@ PUBLIC int unmount_from(char* path){
 
 Node* find_node_in(Node* r, char* name){
 	for(Node* o = r->child; o; o = o->next){
-		if(o->nops->compare){
+		if(o->nops && o->nops->compare){
 			if(!o->nops->compare(o, name)){
 				if(o->attr & NODE_MOUNTED) o = o->child;
 				return o;
@@ -141,6 +141,7 @@ Node* find_node_in(Node* r, char* name){
 	return d;
 }
 PUBLIC Node* path_walk(const char* name){
+	if(name[0] == '/') name = name + 1;
 	char* str = kheap_clonestr(name);
 	int slen = kstrlen(str);
 	int i,j;
@@ -166,6 +167,7 @@ PUBLIC File* open(char* path, int flag){
 	f->node = node;
 	f->mode = flag;
 	f->fops = node->fops;
+	f->size = node->size;
 	if(f->fops && f->fops->open) f->fops->open(node, f);
 	return f;
 }

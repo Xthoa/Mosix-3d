@@ -1,6 +1,33 @@
 default: build
 
-VERSION = 5
+.PHONY: archive
+archive:
+	$(MAKE) -C archive
+
+.PHONY: kernel
+kernel:
+	$(MAKE) -C kernel
+
+.PHONY: boot
+boot:
+	$(MAKE) -C boot
+
+.PHONY: build
+build:
+	$(MAKE) boot kernel archive
+	$(DD) if=boot.bin of=mosix.img bs=512 seek=0 count=4
+	$(DD) if=kernel.elf of=mosix.img bs=512 seek=4
+	$(DD) if=archive.tar of=mosix.img bs=512 seek=68
+	truncate mosix.img --size=%512
+
+.PHONY: clean
+clean:
+	$(MAKE) -C boot clean
+	$(MAKE) -C kernel clean
+	$(MAKE) -C archive clean
+	-rm boot.bin kernel.elf archive.tar mosix.img
+
+
 SMP := ENABLED
 
 DD ?= dd
@@ -19,26 +46,6 @@ else
 	BOCHS_ARGS += -f bochsrc.bxrc
 endif
 
-.PHONY: archive
-archive:
-	$(MAKE) -C archive
-
-.PHONY: kernel
-kernel:
-	$(MAKE) -C kernel
-
-.PHONY: boot
-boot:
-	$(MAKE) -C boot
-
-.PHONY: build
-build:
-	$(MAKE) boot kernel # archive
-	$(DD) if=boot.bin of=mosix.img bs=512 seek=0 count=4
-	$(DD) if=kernel.elf of=mosix.img bs=512 seek=4
-	# $(DD) if=archive.tar of=mosix.img bs=512 seek=52
-	truncate mosix.img --size=%512
-
 .PHONY: bochs
 bochs:
 	$(BOCHS) $(BOCHSARGS)
@@ -54,10 +61,3 @@ qemu:
 .PHONY: qemu-debug
 qemu-debug:
 	$(QEMU) $(QEMU_DEBUG_ARGS)
-
-.PHONY: clean
-clean:
-	$(MAKE) -C boot clean
-	$(MAKE) -C kernel clean
-	$(MAKE) -C archive clean
-	-rm boot.bin kernel.elf archive.tar mosix.img

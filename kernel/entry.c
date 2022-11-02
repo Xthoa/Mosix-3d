@@ -4,6 +4,8 @@
 #include "proc.h"
 #include "smp.h"
 #include "msr.h"
+#include "vfs.h"
+#include "kheap.h"
 
 // Kernel C code starts from here.
 // This is the entry point in kernel.elf
@@ -40,6 +42,19 @@ void KernelBootEntry(BootArguments* bargs){
 	idle->stat = Running;
 	WriteMSR(Fsbase, idle);
 
+	mount_initfs();
+
 	puts("Kernel init done\n");
+
+	bochsdbg();
+	File* file = open("/files/boot/test.txt", 0);
+	int size = file->size;
+	char* buf = kheap_alloc(size + 1);
+	read(file, buf, size);
+	close(file);
+	buf[size] = '\0';
+	puts(buf);
+	kheap_free(buf);
+
 	IdleRoutine();
 }
