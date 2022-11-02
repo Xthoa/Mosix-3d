@@ -30,7 +30,7 @@ void KernelBootEntry(BootArguments* bargs){
 	proc_init();
 	sched_init();
 	smp_init(bargs);
-	puts("Kernel init done\n");
+
 	Processor* c = GetCurrentProcessorByLapicid();
 	Process* idle = alloc_process("Idle");
 	idle->pagemap = refer_pagemap(&kernmap);
@@ -39,7 +39,7 @@ void KernelBootEntry(BootArguments* bargs){
 	c->cur = idle;
 	idle->stat = Running;
 	WriteMSR(Fsbase, idle);
-	bochsdbg();
 
+	puts("Kernel init done\n");
 	IdleRoutine();
 }

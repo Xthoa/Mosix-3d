@@ -2,7 +2,9 @@
 
 #include "types.h"
 
-#define INODE_DIRECTORY 1
+#define NODE_DIRECTORY 1
+#define NODE_MOUNTED 2
+#define NODE_EXPIRED 4  // can be flushed
 
 #define SB_NO_HARDLINK 1
 #define SB_READONLY 2
@@ -69,9 +71,9 @@ typedef struct s_Filesystem{
     struct s_Filesystem* next;
     char* name;
     struct s_Superblock* instance;
-    struct s_Superblock* (*read_sb)(Node* dev);
-    void (*write_sb)(struct s_Superblock* sb);
-    void (*kill_sb)(struct s_Superblock* sb);
+    struct s_Superblock* (*mount_sb)(Node* dev);
+    void (*update_sb)(struct s_Superblock* sb);
+    void (*release_sb)(struct s_Superblock* sb);
 } Filesystem;
 
 typedef struct s_Superblock{
@@ -94,7 +96,11 @@ void destroy_fstype(Filesystem* tp);
 
 Superblock* create_superblock(Filesystem* tp);
 void destroy_superblock(Superblock* sb);
+
 Superblock* mount_sb(char* fstype, Node* dev);
+void unmount_sb(Superblock* sb);
+int mount_on(char* path, char* fstype, Node* dev);
+int unmount_from(char* path);
 
 Node* path_walk(const char* name);
 

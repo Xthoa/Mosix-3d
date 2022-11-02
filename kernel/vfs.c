@@ -6,6 +6,8 @@ PRIVATE Filesystem* fsroot;
 PRIVATE Superblock* sbroot;
 PRIVATE Node* root;
 
+Node* path_walk_stepback(const char* name, Bool* backed);
+
 // Raw Node structure alloc/free
 PUBLIC Node* alloc_node(const char* name, u32 flag){
     Node* n = kheap_alloc_zero(sizeof(Node));
@@ -91,17 +93,46 @@ PUBLIC void destroy_superblock(Superblock* sb){
 PUBLIC Superblock* mount_sb(char* fstype, Node* dev){
 	Filesystem* fs = find_fstype(fstype);
 	if(!fs) return NULL;
-	return fs->read_sb(dev);
+	return fs->mount_sb(dev);
+}
+PUBLIC void unmount_sb(Superblock* sb){
+	Filesystem* fs = sb->type;
+	if(!fs->release_sb) return;
+	fs->release_sb(sb);
+}
+PRIVATE void mount_on_node(Node* point, char* fstype, Node* dev){
+	Superblock* sb = mount_sb(fstype, dev);
+	point->attr |= NODE_MOUNTED;
+	point->sb = sb;
+	point->child = sb->root;
+}
+PRIVATE void unmount_from_node(Node* point){
+	Superblock* sb = point->sb;
+	unmount_sb(sb);
+}
+PUBLIC int mount_on(char* path, char* fstype, Node* dev){
+	Node* point = path_walk(path);
+	if(!point) return ErrNull;
+	mount_on_node(point, fstype, dev);
+	return 0;
+}
+PUBLIC int unmount_from(char* path){
+	Node* point = path_walk(path);
+	if(!point) return ErrNull;
+	unmount_from_node(point);
+	return 0;
 }
 
 Node* find_node_in(Node* r, char* name){
 	for(Node* o = r->child; o; o = o->next){
 		if(o->nops->compare){
 			if(!o->nops->compare(o, name)){
+				if(o->attr & NODE_MOUNTED) o = o->child;
 				return o;
 			}
 		}
 		if(!strcmp(o->name, name)){
+			if(o->attr & NODE_MOUNTED) o = o->child;
 			return o;	// Already in node tree
 		}
 	}
@@ -130,7 +161,7 @@ PUBLIC Node* path_walk(const char* name){
 PUBLIC File* open(char* path, int flag){
 	Node* node = path_walk(path);
 	if(!node) return -2;
-	if(node->attr & INODE_DIRECTORY) return -1;
+	if(node->attr & NODE_DIRECTORY) return -1;
 	File* f = kheap_alloc(sizeof(File));
 	f->node = node;
 	f->mode = flag;
