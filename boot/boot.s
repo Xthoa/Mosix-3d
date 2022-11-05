@@ -388,6 +388,7 @@ fill_pt32:
 
 find_rsdp32:
     mov ebp,0x5a020
+	mov dword [ebp+4],0
     xor esi,esi
     mov si,word [0x40e]
     shl esi,4
@@ -460,14 +461,15 @@ mov fs,ax
 mov gs,ax
 
 mov rbx, 0xffffff80_00000000
-lea rsp, [rbx+0x48000]
+lea rsi, [rbx+0x48000]
+mov rsp, rsi
 
-lea rdi, [rsp+0x2000]
+lea rdi, [rsi+0x2000]
 movzx rax, word [rdi+0xa]
-add rax, rdi
+add rax, rsi
 mov [rdi+0x28], rax
 movzx rax, word [rdi+0x12]
-add rax, rdi
+add rax, rsi
 mov [rdi+0x30], rax
 
 cli

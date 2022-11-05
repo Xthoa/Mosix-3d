@@ -2,7 +2,7 @@
 #include "kheap.h"
 #include "smp.h"
 #include "msr.h"
-#include "desc.h"
+#include "intr.h"
 #include "vfs.h"
 #include "asm.h"
 // #include "exec.h"
@@ -187,6 +187,13 @@ Bool set_process_entry(Process* t,u64 routine){
 	rsp[-2]=routine;
 	rsp[-3]=t;
 	return Success;
+}
+
+void alloc_fdtable(Process* p){
+	p->fdtable = kheap_alloc_zero(sizeof(File*) * 16);
+}
+void free_fdtable(Process* p){
+	kheap_free(p->fdtable);
 }
 
 // Ready list stuff

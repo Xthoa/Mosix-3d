@@ -2,7 +2,7 @@
 #include "boot.h"
 #include "vmem.h"
 #include "apic.h"
-#include "desc.h"
+#include "intr.h"
 #include "asm.h"
 #include "proc.h"
 
@@ -119,26 +119,24 @@ void ParseMadt(Madt* madt){
 			struct _me_type0_lapic* me=e->data;
 			Processor* p = cpus + ncpu;
             p->lapicid = me->lapicid;
-            if(startcpu(p)){
-                p->index = ncpu++;
-            }
+			p->index = ncpu;
+            if(startcpu(p)) ncpu++;
 		}
 		else if(e->type==9){
 			struct _me_type9_x2apic* me=e->data;
 			Processor* p = cpus + ncpu;
 			p->lapicid = me -> x2apicid;
-            if(startcpu(p)){
-                p->index = ncpu++;
-            }
+			p->index = ncpu;
+            if(startcpu(p)) ncpu++;
 		}
 		e=(u64)e+e->len;
 	}
 }
-void set_segmdesc(Descriptor* tab,int no,
+void set_segmdesc(Segment* tab,int no,
 	int base,int limit,
 	Bool acs,Bool rw,Bool dir,Bool exec,int dpl
 ){
-	Descriptor* d=tab+no;
+	Segment* d=tab+no;
 	if((uint)limit>0xfffff){
 		d->pagesized=True;
 		limit>>=12;
@@ -158,11 +156,11 @@ void set_segmdesc(Descriptor* tab,int no,
 	d->base3=(base>>24)&0xff;
 }
 void prepare_tss(Processor* p){
-	u32 dof=10+p->index*2;
-	u64 base=GDT+dof;
-	u64 addr=&p->tss;
-	Descriptor *d=base;
-	Gate* g=base;
+	u32 dof = 10 + p->index * 2;
+	u64 base = GDT + dof * sizeof(Segment);
+	u64 addr = &p->tss;
+	Segment *d = base;
+	Gate* g = base;
 	d->limit=sizeof(Tss64)-1;
 	d->base=addr&0xffff;
 	d->base2=(addr>>16)&0xff;
@@ -175,7 +173,6 @@ void prepare_tss(Processor* p){
 	g->pad=0;
 	vasm("movl %0,%%eax;ltr %%ax;"::"g"(dof*8));
 	p->tss.iobase=0;
-	p->tss.ist1=0xffff80000009ef00;
 }
 void smp_init_self(Processor* self){
     prepare_tss(self);
@@ -191,11 +188,10 @@ void IdleRoutine(){
 void apmain_asm();
 void apmain(Processor* self){
     lapic_init();
-    self->stat = CPU_READY;
     smp_init_self(self);
     // bochsdbg();
 	char* name = "Idle0";
-	name[4] += self->index;
+	name[4] = '0' + self->index;
 	Process* idle = alloc_process(name);
 	idle->pagemap = refer_pagemap(&kernmap);
 	alloc_stack(idle, 1);
@@ -203,6 +199,7 @@ void apmain(Processor* self){
 	self->idle = idle;
 	idle->curcpu = self->index;
     Process dummy;
+    self->stat = CPU_READY;
 	switch_to(self, &dummy, idle);
 }
 void smp_init(BootArguments* bargs){

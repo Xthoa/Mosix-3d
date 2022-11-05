@@ -53,6 +53,8 @@ typedef struct s_Process{
 	struct s_Process* next;
 	struct s_Process* child;
 
+	File** fdtable;
+
 	jmp_buf* jbstack;
 	u16 jbesp;
 	

@@ -78,15 +78,18 @@ void dump_mem(u64 lin,u16 size){
 	putc('\n');
 }*/
 void dump_context(){
+	Processor* p = GetCurrentProcessorByLapicid();
+	if(p == NULL){
+		puts("Context not initialized (CPU==null)\n");
+		return;
+	}
 	puts("Context:\n  Processor ");
-	Processor* p=GetCurrentProcessorByLapicid();
-	Process* t=p->cur;
+	Process* t = p->cur;
 	printk("%B\n  Process '%s' id=%w at %q\n", p->index, t->name, t->pid, t);
 }
 
 IntHandler void interr0d(IntFrame* f,u64 code){
 	bochsdbg();
-	//global_color=WHITE;
 	puts("\nSystem error: #GP General Protection\n");
 	printk("  at %w:%q\n  rsp %p\n",f->cs,f->rip,f->rsp);
 	if(code==0x113)puts("  Cause: Gate.sys = False\n");
@@ -95,78 +98,42 @@ IntHandler void interr0d(IntFrame* f,u64 code){
 		dump_segment(code);
 	}
 	dump_context();
-	//if(dbg_regs)dump_regs(f->rsp);
 	bochsdbg();
 	//wait_reset();
 	hlt();
 }
 
-//Bool tracing=False;
 IntHandler void interr0e(IntFrame* f,u64 code){
 	bochsdbg();
-	//if(tracing)goto np;
 	u64 cr2=getcr2();
-	//global_color=WHITE;
 	puts("\nSystem error: #PF Page Fault\n");
 	printk("  at %w:%q\n  to %p\n  rsp %p\n",f->cs,f->rip,cr2,f->rsp);
 	printk("%s of %s page in %s mode\n",
 		code&2?"Write":"Read",code&1?"protected":"non-present",code&4?"user":"kernel");
 	dump_context();
-	/*puts("Page index route:\n");
-	u64 cr3=getcr3();
-	tracing=True;
-	pml4_t pml4=core_phy2lin(cr3);
-	off_t pml4o=extract_pml4o(cr2);
-	pml4e_t pml4e=get_pml4_entry(pml4, pml4o);
-	printk("  PML4 %q [%b] %q\n",pml4,pml4o,*(u64*)&pml4e);
-	if(!pml4e.present)goto np;
-	pdpt_t pdpt=core_phy2lin(get_pdpt_phy(pml4e));
-	off_t pdpto=extract_pdpto(cr2);
-	pdpte_t pdpte=get_pdpt_entry(pdpt, pdpto);
-	printk("  PDPT %q [%b] %q\n",pdpt,pdpto,*(u64*)&pdpte);
-	if(!pdpte.present)goto np;
-	pd_t pd=core_phy2lin(get_pd_phy(pdpte));
-	off_t pdo=extract_pdo(cr2);
-	pde_t pde=get_pd_entry(pd, pdo);
-	printk("  PD  %q [%b] %q\n",pd,pdo,*(u64*)&pde);
-	if(!pde.present)goto np;
-	pt_t pt=core_phy2lin(get_pt_phy(pde));
-	off_t pto=extract_pto(cr2);
-	pte_t pte=get_pt_entry(pt, pto);
-	printk("  PT %q [%b] %q\n",pt,pto,*(u64*)&pte);
-	if(!pte.present)goto np;
-	u64 phy=get_page_phy(pte);
-	printk("  Page %q : %q\n",cr2,pte);
-	puts("End: access check\n");
-	goto end;
-	np:
-	puts("End: pt not present\n");
-	end:*/
-	//if(dbg_regs)dump_regs(rsp);
+	printk("PDPTE: %q\n",*(u64*)get_mapping_pdpte(cr2));
+	printk("PDE:   %q\n",*(u64*)get_mapping_pde(cr2));
+	printk("PTE:   %q\n",*(u64*)get_mapping_pte(cr2));
 	bochsdbg();
 	//wait_reset();
 	hlt();
 }
 
 IntHandler void interr08(IntFrame* f,u64 code){
-	//global_color=RED;
-	puts("FATAL");
+	puts("\nFatal error: #DF Double Fault\n");
 	bochsdbg();
 	hlt();
 }
 
 IntHandler void intall(IntFrame* f){
-	//global_color=WHITE;
 	puts("\nSystem error: Interrupt\n");
 	printk("  at %w:%q\n",f->cs,f->rip);
 	dump_context();
-	//if(dbg_regs)dump_regs(rsp);
 	bochsdbg();
 	//wait_reset();
 	hlt();
 }
 IntHandler void interr0a(IntFrame* f,u64 code){
-	//global_color=WHITE;
 	puts("\nSystem error: #TS Faulty TSS\n");
 	printk("  at %w:%q\n  rsp %p\n  code %q\n",f->cs,f->rip,f->rsp);
 	dump_context();
@@ -174,7 +141,6 @@ IntHandler void interr0a(IntFrame* f,u64 code){
 	hlt();
 }
 IntHandler void interr0b(IntFrame* f,u64 code){
-	//global_color=WHITE;
 	puts("\nSystem error: #NP Segment not present\n");
 	printk("  at %w:%q\n  rsp %p\n  code %q\n",f->cs,f->rip,f->rsp);
 	dump_context();
@@ -182,7 +148,6 @@ IntHandler void interr0b(IntFrame* f,u64 code){
 	hlt();
 }
 IntHandler void interr0c(IntFrame* f,u64 code){
-	//global_color=WHITE;
 	puts("\nSystem error: #SS Stack fault\n");
 	printk("  at %w:%q\n  rsp %p\n  code %q\n",f->cs,f->rip,f->rsp);
 	dump_context();

@@ -32,7 +32,6 @@ void KernelBootEntry(BootArguments* bargs){
 	proc_init();
 	sched_init();
 	smp_init(bargs);
-
 	Processor* c = GetCurrentProcessorByLapicid();
 	Process* idle = alloc_process("Idle");
 	idle->pagemap = refer_pagemap(&kernmap);

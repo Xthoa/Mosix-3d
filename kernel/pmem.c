@@ -22,8 +22,8 @@ void pmem_init(BootArguments* bargs){
             // We reserve the lowest 1M so this is the simplest way
 
             Extent* e = phyflist.root + phyflist.size;
-            e->pos = ab->base;
-            e->size = ab->len;
+            e->pos = ab->base / PAGE_SIZE;
+            e->size = ab->len / PAGE_SIZE;
             phyflist.size ++;
         }
     }
@@ -96,8 +96,8 @@ PUBLIC void flist_dealloc(Freelist *aloc,u64 addr,u32 size){
 }
 
 PUBLIC paddr_t alloc_phy(uint32_t pages){
-    return flist_alloc(&phyflist, pages);
+    return flist_alloc(&phyflist, pages) * PAGE_SIZE;
 }
 PUBLIC void free_phy(paddr_t addr, uint32_t pages){
-    flist_dealloc(&phyflist, addr, pages);
+    flist_dealloc(&phyflist, addr / PAGE_SIZE, pages);
 }

@@ -1,5 +1,5 @@
 /bochsout.txt
-*.d
+*.d*
 *.x
 *.o
 *.pe
