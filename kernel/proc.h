@@ -25,18 +25,54 @@ typedef enum e_ProcStatus{
 //	Confirmed=7	// Creator is aware of stop
 } ProcStatus;
 
-struct s_Instance;
-typedef struct s_Pagemap{
+#define VM_READ 1	// readable
+#define VM_WRITE 2	// writable
+#define VM_RW 3
+#define VM_EXECUTE 4	// executable
+#define VM_RX 5
+#define VM_RWX 7
+#define VM_COW 8	// copy-on-write, not yet written - to be copied on write
+#define VM_SHARE 0x10	// shared/shareable - paddr=>sharedptr
+#define VM_SWAP 0x20	// swapped - to be swapped back on acs
+#define VM_NOCOMMIT 0x40	// not commited(reserved) - to be allocated on acs
+
+#define VM_IMAGE 1	// content of image
+#define VM_LIBIMAGE 2	// content of library image
+#define VM_STACK 4
+#define VM_HEAP 8
+#define VM_DATA 0x10	// (allocated space) private data
+
+typedef struct s_SharedVmarea{
+	paddr_t paddr;
+	uint32_t ref;
+} SharedVmarea;
+typedef struct s_Vmarea{
+	vaddr_t vaddr;
+	union{
+		paddr_t paddr;
+		SharedVmarea* sharedptr;
+	};
+	uint32_t pages;
+	uint16_t type;
+	uint16_t flag;
+} Vmarea;
+typedef struct s_Vmspace{
 	paddr_t cr3;
 	pml4t_t pml4t;
-	uint32_t ref;	// reference count
-} Pagemap;
-typedef struct s_Process{
-	Pagemap* pagemap;
 
-	u64 rsp;
-	u64 rsb;
-	u16 sl;		// by pages
+	Vmarea* areas;
+	uint32_t count;
+
+	uint32_t ref;	// reference count
+	Spinlock alock;
+} Vmspace;	// work as mm_struct in linux
+
+typedef struct s_Process{
+	Vmspace* vm;
+
+	u64 rsp;	// RSP in context switch
+	vaddr_t rsb;	// stack position
+	u16 sl;		// reserved stack (by pages)
 
 	u8 curcpu;		// currently running on [USED BY ASSEMBLY, 0x1a]
 	u8 lovedcpu;	// suggested processor
@@ -48,37 +84,30 @@ typedef struct s_Process{
 	u64 fsbase;	// 0x28
 	u64 gsbase;
 
-	struct s_Process* father;
-	struct s_Process* prev;
-	struct s_Process* next;
-	struct s_Process* child;
-
 	File** fdtable;
 
 	jmp_buf* jbstack;
 	u16 jbesp;
 	
 	volatile u16 stat;
-	Spinlock treelock;
 } Process;
 
 extern Process** pidmap;
 
-extern Pagemap kernmap;
+extern Vmspace kernmap;
 
-Pagemap* alloc_pagemap();
-void free_pagemap(Pagemap* map);
-Pagemap* refer_pagemap(Pagemap* map);
-void deref_pagemap(Pagemap* map);
+Vmspace* alloc_vmspace();
+void free_vmspace(Vmspace* map);
+Vmspace* refer_vmspace(Vmspace* map);
+void deref_vmspace(Vmspace* map);
 
 Process* alloc_process(char* name);
 void free_process(Process* p);
-Process* create_process(char* name);
-void destroy_process(Process* p);
 Process* find_process(char* name);
 
-Bool alloc_stack(Process* t,u16 sl);
-Bool set_process_entry(Process* t,u64 routine);
+void alloc_stack(Process* t, u16 rsv, u16 commit, vaddr_t base, vaddr_t entry);
+
+Process* create_process(char* name, Vmspace* vm, u16 stkrsv, u16 stkcommit, vaddr_t stkbase, vaddr_t entry);
 
 int ready_process(Process* t);
 void wait_process(Process* t);
@@ -89,4 +118,3 @@ int fork_process();
 
 Process* GetCurrentProcess();
 u16 GetCurrentProcessID();
-struct s_Instance* GetCurrentInstance();

@@ -12,6 +12,9 @@
 #define invlpg(addr) vasm("invlpg (%0)"::"r"(addr):"memory")
 #define AsmRebootSystem() outb(0x64,0xfe)
 
+#define lock_inc(x) asm("lock; incl %0":"+m"(x));
+#define lock_dec(x) asm("lock; decl %0":"+m"(x));
+
 static inline u64 getcr3(){
   u64 cr3;
   asm("mov %%cr3,%0":"=r"(cr3));

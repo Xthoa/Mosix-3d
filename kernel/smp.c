@@ -5,6 +5,8 @@
 #include "intr.h"
 #include "asm.h"
 #include "proc.h"
+#include "msr.h"
+#include "kheap.h"
 
 u8 ncpu;
 
@@ -193,14 +195,14 @@ void apmain(Processor* self){
 	char* name = "Idle0";
 	name[4] = '0' + self->index;
 	Process* idle = alloc_process(name);
-	idle->pagemap = refer_pagemap(&kernmap);
-	alloc_stack(idle, 1);
-	set_process_entry(idle, (u64)IdleRoutine);
+	idle->vm = refer_vmspace(&kernmap);
 	self->idle = idle;
 	idle->curcpu = self->index;
-    Process dummy;
+	self->cur = idle;
+	idle->stat = Running;
+	WriteMSR(Fsbase, idle);
     self->stat = CPU_READY;
-	switch_to(self, &dummy, idle);
+	IdleRoutine();
 }
 void smp_init(BootArguments* bargs){
     ncpu = 0;

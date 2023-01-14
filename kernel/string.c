@@ -121,3 +121,10 @@ u64 hex2str32(u32 i){
 u128 hex2str64(u64 i){
 	return (u128)hex2str32(i>>32)+((u128)hex2str32(i)<<64);
 }
+
+u64 min(u64 a,u64 b){
+	return a<b?a:b;
+}
+u64 max(u64 a,u64 b){
+	return a>b?a:b;
+}

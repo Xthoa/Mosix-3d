@@ -3,6 +3,7 @@
 #include "boot.h"
 #include "string.h"
 #include "kheap.h"
+#include "macros.h"
 
 PRIVATE Freelist phyflist;
 
@@ -28,14 +29,15 @@ void pmem_init(BootArguments* bargs){
         }
     }
 }
+
 // alloc&dealloc on general Freelist
 PUBLIC u64 flist_alloc(Freelist *aloc,u32 size){
 	u64 addr=0;
 	for(int i = 0; i < aloc->size; i++){
-		Extent* f=&(aloc->root[i]);
+		Extent* f= aloc->root + i;
 		if(f->size==size){
 			addr = f->pos;
-			memcpy(f, f+1, (aloc->size-(f-aloc->root))*sizeof(Extent));
+			pull_back_array(aloc->root, aloc->size, i, Extent);
 			aloc->size --;
 			break;
 		}
@@ -51,10 +53,9 @@ PUBLIC u64 flist_alloc(Freelist *aloc,u32 size){
 PUBLIC void flist_dealloc(Freelist *aloc,u64 addr,u32 size){
 	u32 i,len;
 	for(i = 0; i < aloc->size; i++){
-		Extent* f=&(aloc->root[i]);
+		Extent* f= aloc->root + i;
 		if(f->pos >= addr+size){
-			u32 len = aloc->size - i;
-			memmove(f+1, f, len*sizeof(Extent));
+			push_back_array(aloc->root, aloc->size, i, Extent);
 			f->pos = addr;
 			f->size = size;
 			aloc->size ++;
@@ -68,33 +69,25 @@ PUBLIC void flist_dealloc(Freelist *aloc,u64 addr,u32 size){
 		aloc->size ++;
 	}
 
-	Extent* front = &(aloc->root[i-1]);
-	Extent* self = &(aloc->root[i]);
-	Extent* end = &(aloc->root[i+1]);
-	Bool raf,rae;
-	if(i == 0) raf = False;
-	else raf = front->pos + front->size == addr;
-	if(i == aloc->size) rae = False;
-	else rae = end->pos == addr+size;
+	Extent* self = aloc->root + i;
+	Extent* front = self - 1;
+	Extent* end = self + 1;
 
-	if(raf){
+	if(i !=0 && front->pos + front->size == addr){
 		front->size += size;
-		len = aloc->size-i-1;
-		memmove(self, end, len*sizeof(Extent));
-		end=self;
-        self=front;
-		i--;
+		pull_back_array(aloc->root, aloc->size, i, Extent);
+		end = self; self = front; i--;
         aloc->size--;
 	}
-	if(rae){
+	if(i != aloc->size && end->pos == addr + size){
 		self->size += end->size;
-		len = aloc->size-i-2;
-		memmove(end, end+1, len*sizeof(Extent));
+		pull_back_array(aloc->root, aloc->size, i+1, Extent);
 		aloc->size--;
 	}
 	return;
 }
 
+// General interface on physical memory management
 PUBLIC paddr_t alloc_phy(uint32_t pages){
     return flist_alloc(&phyflist, pages) * PAGE_SIZE;
 }

@@ -8,6 +8,6 @@
 
 PUBLIC int fork_process(){
     Process* old = GetCurrentProcess();
-    Process* new = create_process(old->name);
+    //Process* new = create_process(old->name, );
 
 }

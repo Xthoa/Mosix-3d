@@ -76,7 +76,7 @@ mov ss,ax
 mov sp,0x7c00
 mov [driveno], dl
 
-KernelSectors equ 38
+KernelSectors equ 58
 ArchiveSectors equ 2
 ArchivePosition equ 68
 
@@ -447,13 +447,13 @@ wrmsr
 mov eax,cr0
 bts eax,31
 mov cr0,eax
-jmp 16: entry64
+jmp 8: entry64
 
 bits 64
 entry64:
 lgdt [GDTR64]
 lidt [IDTR64]
-mov ax,8
+mov ax,16
 mov ds,ax
 mov es,ax
 mov ss,ax
@@ -508,12 +508,12 @@ apcode32:
 	mov eax,cr0
 	bts eax,31
 	mov cr0,eax
-	jmp 16:apcode64
+	jmp 8:apcode64
 apcode64:
 	bits 64
 	lgdt [rel GDTR64]
 	lidt [rel IDTR64]
-	mov ax,8
+	mov ax,16
 	mov ds,ax
 	mov es,ax
 	mov ss,ax
@@ -525,8 +525,8 @@ jmp [apmain]
 align 16
 GDT:
 	Descriptor 0,0,0
-	Descriptor 0,0,SEG_DATA64
 	Descriptor 0,0,SEG_CODE64
+	Descriptor 0,0,SEG_DATA64
 	Descriptor 0,0,SEG_DATA64+DPL*3
 	Descriptor 0,0,SEG_CODE64+DPL*3
 	Descriptor 0,0xfffff,SEG_DATA32

@@ -155,12 +155,12 @@ IntHandler void interr0c(IntFrame* f,u64 code){
 	hlt();
 }
 void fault_intr_init(){
-	//set_gatedesc(0x00,(u64)interr00,16,0,3,Interrupt);
-	//set_gatedesc(0x03,int03,16,0,3,TrapGate);
-	set_gatedesc(0x08,interr08,16,0,3,Interrupt);
-	set_gatedesc(0x0a, interr0a, 16, 0, 3, Interrupt);
-	set_gatedesc(0x0b, interr0b, 16, 0, 3, Interrupt);
-	set_gatedesc(0x0c, interr0c, 16, 0, 3, Interrupt);
-	set_gatedesc(0x0d,(u64)interr0d,16,0,3,Interrupt);
-	set_gatedesc(0x0e,(u64)interr0e,16,0,3,Interrupt);
+	//set_gatedesc(0x00,(u64)interr00,8,0,3,Interrupt);
+	//set_gatedesc(0x03,int03,8,0,3,TrapGate);
+	set_gatedesc(0x08,interr08,8,0,3,Interrupt);
+	set_gatedesc(0x0a, interr0a, 8, 0, 3, Interrupt);
+	set_gatedesc(0x0b, interr0b, 8, 0, 3, Interrupt);
+	set_gatedesc(0x0c, interr0c, 8, 0, 3, Interrupt);
+	set_gatedesc(0x0d,(u64)interr0d,8,0,3,Interrupt);
+	set_gatedesc(0x0e,(u64)interr0e,8,0,3,Interrupt);
 }

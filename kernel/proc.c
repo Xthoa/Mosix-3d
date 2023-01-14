@@ -5,10 +5,12 @@
 #include "intr.h"
 #include "vfs.h"
 #include "asm.h"
-// #include "exec.h"
 #include "apic.h"
 #include "vmem.h"
 #include "spin.h"
+#include "except.h"
+#include "macros.h"
+#include "string.h"
 
 // Bitmap
 off_t alloc_bit(Bitmap* map){
@@ -33,20 +35,20 @@ void free_bit(Bitmap* map,off_t bit){
 }
 
 PRIVATE Bitmap* procmap;
-PUBLIC Pagemap kernmap;
+PUBLIC Vmspace kernmap;
 PUBLIC Process** pidmap;
-// PRIVATE Node* procor;
 
 void proc_init(){
-	procmap=KERNEL_BASE+0x65e00;
-	procmap->max=1984;
-	procmap->size=0;
-	pidmap=KERNEL_BASE+0x62000;
+	procmap = KERNEL_BASE + 0x65e00;
+	procmap->max = 1984;
+	procmap->size = 0;
+	pidmap = KERNEL_BASE + 0x62000;
 	memset(pidmap, 0, 0x3e00);
 	kernmap.cr3 = KERNEL_PML4_PHY;
 	kernmap.pml4t = KERNEL_PML4;
 	kernmap.ref = 0;
-	// procor = create_subdir(find_node("/run"), "proc", 0);
+	kernmap.areas = NULL;
+	kernmap.count = 0;
 }
 
 Process* GetCurrentProcess(){
@@ -61,85 +63,27 @@ u16 GetCurrentProcessID(){
 	return val;
 }
 
-Pagemap* alloc_pagemap(){
-	Pagemap* map = kheap_alloc(sizeof(Pagemap));
-	map->pml4t = malloc_page4k(1);
-	map->cr3 = get_mapped_phy(map->pml4t);
-	map->ref = 0;
-	return map;
-}
-void free_pagemap(Pagemap* map){
-	free_page4k(map->pml4t, 1);
-	kheap_free(map);
-}
-Pagemap* refer_pagemap(Pagemap* map){
-	asm("lock; incl %0":"+m"(map->ref));
-	return map;
-}
-void deref_pagemap(Pagemap* map){
-	asm("lock; decl %0":"+m"(map->ref));
-	if(map->ref == 0)free_pagemap(map);
-}
-
+// process frame
 Process* alloc_process(char* name){
 	Process* p = kheap_alloc(sizeof(Process));
 	p->fsbase = p;
 	p->name = kheap_clonestr(name);
-	/*Object* o=create_object(p, sizeof(Process), proctp);
-	Node* n=create_node(procor, p->name, o);
-	p->node=n;*/
 	p->pid = alloc_bit(procmap);
 	pidmap[p->pid] = p;
 	p->stat = Created;
 	p->affinity = 0xffff;
-	p->pagemap = NULL;
-	p->father=p->prev=p->next=p->child = NULL;
+	p->vm = NULL;
 	p->jbesp = 0;
 	p->lovedcpu=p->curcpu = 0;
 	p->jbstack = kheap_alloc(sizeof(jmp_buf) * 32);
-	init_spinlock(&p->treelock);
 	return p;
 }
 void free_process(Process* p){
-	/*destroy_object(p->node->obj);
-	destroy_node(p->node);*/
 	kheap_free(p->jbstack);
 	pidmap[p->pid] = NULL;
 	free_bit(procmap, p->pid);
 	kheap_freestr(p->name);
 	kheap_free(p);
-}
-void set_process_father(Process* p,Process* f){
-	p->prev=NULL;
-	p->father=f;
-	acquire_spin(&f->treelock);
-	p->next=f->child;
-	if(f->child)f->child->prev=p;
-	f->child=p;
-	release_spin(&f->treelock);
-}
-void del_process_father(Process* p){
-	acquire_spin(&p->treelock);
-	Process* f=p->father;
-	if(!f)return;
-	acquire_spin(&f->treelock);
-	if(f->child==p)f->child=p->next;
-	else p->prev->next=p->next;
-	release_spin(&f->treelock);
-	if(p->next)p->next->prev=p->prev;
-	release_spin(&p->treelock);
-}
-void be_process_father(Process* p){
-	set_process_father(p,GetCurrentProcess());
-}
-Process* create_process(char* name){
-	Process* p=alloc_process(name);
-	be_process_father(p);
-	return p;
-}
-void destroy_process(Process* p){
-	del_process_father(p);
-	free_process(p);
 }
 Process* find_process(char* name){
 	for(int i=0;i<MAXPROC;i++){
@@ -150,26 +94,134 @@ Process* find_process(char* name){
 	return NULL;
 }
 
-Bool alloc_stack(Process* t,u16 sl){
-	if(!t)return ErrNull;
-	if(!sl)return ErrNull;
-	t->sl = sl;
-	t->rsb = malloc_page4k_attr(sl, PGATTR_NOEXEC);
-	// Stack execution protection
-	t->rsp = t->rsb+sl*PAGE_SIZE;
-	return Success;
+// vmspace: memory(map) resource
+Vmspace* alloc_vmspace(){
+	Vmspace* map = kheap_alloc(sizeof(Vmspace));
+	map->pml4t = malloc_page4k_attr(1, PGATTR_NOEXEC);
+	map->pml4t[511] = ((pml4t_t)KERNEL_PML4)[511];
+	map->cr3 = get_mapped_phy(map->pml4t);
+	map->ref = 0;
+	map->areas = malloc_page4k_attr(1, PGATTR_NOEXEC);	// max 85 records
+	map->count = 0;
+	init_spinlock(&map->alock);
+	return map;
 }
-Bool free_stack(Process* t){
-	if(!t)return ErrNull;
-	if(!t->sl)return ErrNull;
-	free_page4k(t->rsb,t->sl);
-	t->rsb=t->sl=0;
-	return Success;
+void free_vmspace(Vmspace* map){
+	free_page4k(map->pml4t, 1);
+	kheap_free(map);
+}
+Vmspace* refer_vmspace(Vmspace* map){
+	lock_inc(map->ref);
+	return map;
+}
+void deref_vmspace(Vmspace* map){
+	lock_dec(map->ref);
+	if(map->ref == 0)free_vmspace(map);
+}
+void insert_vmarea(Vmspace* map, vaddr_t vaddr, paddr_t paddr, u32 pages, u16 type, u16 flag){
+	acquire_spin(&map->alock);
+	Vmarea* vm = map->areas;
+	for(int i=0; i<map->count; i++, vm++){
+		if(vm->vaddr < vaddr) continue;
+		if(vm->vaddr < vaddr+pages){
+			release_spin(&map->alock);
+			__throw(1);
+		}
+		push_back_array(map->areas, map->count, i, Vmarea);
+		break;
+	}
+	map->count ++;
+	vm->vaddr = vaddr;
+	vm->paddr = paddr;
+	vm->pages = pages;
+	vm->type = type;
+	vm->flag = flag;
+	release_spin(&map->alock);
+}
+void delete_vmarea(Vmspace* map, vaddr_t vaddr){
+	acquire_spin(&map->alock);
+	for(int i=0; i<map->count; i++){
+		Vmarea* vm = map->areas + i;
+		if(vm->vaddr == vaddr){
+			pull_back_array(map->areas, map->count, i, Vmarea);
+			release_spin(&map->alock);
+			return;
+		}
+	}
+	release_spin(&map->alock);
+	ASSERT_ARG(vaddr, "0x%q", vaddr);
+	__throw(2);
+}
+
+// memory(stack) resource
+void map_initial_stack(Process* p, vaddr_t lin, paddr_t phy, u16 pages){
+	pml4t_t pml4 = p->vm->pml4t;
+	off_t pml4o = (lin>>39)&0x1ff;	// bit 39-47
+	off_t pdpto = (lin>>30)&0x1ff;	// bit 30-38
+	off_t pdo = (lin>>21)&0x1ff;	// bit 21-29
+	off_t pdopto = (lin>>12)&0x3ffff;	// bit 12-29
+	off_t apdo = ((pdopto+pages)>>9)&0x1ff;
+	off_t pto = (lin>>12)&0x1ff;	// bit 12-20
+	pdpt_t pdpt = malloc_page4k_attr(1, PGATTR_NOEXEC);
+	set_pml4e(pml4 + pml4o, kernel_v2p(pdpt), PGATTR_USER);
+	pd_t pd = malloc_page4k_attr(1, PGATTR_NOEXEC);
+	set_pdpte(pdpt + pdpto, kernel_v2p(pd), PGATTR_USER);
+	for(; pdo<=apdo; pdo++){
+		pt_t pt = malloc_page4k_attr(1, PGATTR_NOEXEC);
+		set_pde(pd + pdo, kernel_v2p(pt), PGATTR_USER);
+		u32 dest = min(512, pto + pages);
+		for(; pto<dest; pto++, phy += PAGE_SIZE){
+			set_pte(pt + pto, phy, PGATTR_NOEXEC);
+		}
+		pages -= dest - pto;
+		pto = 0;
+	}
 }
 void ProcessEntryStub();
-void ProcessEntrySafe(u64 routine,Process* self){
+void alloc_stack(Process* t, u16 rsv, u16 commit, vaddr_t base, vaddr_t entry){
+	t->sl = rsv;
+	t->rsb = base;
+	t->rsp = base + rsv*PAGE_SIZE;
+	paddr_t phy = alloc_phy(commit);
+	vaddr_t cbase = t->rsp - commit*PAGE_SIZE;
+	insert_vmarea(t->vm, base, 0, rsv, VM_STACK, VM_RW|VM_NOCOMMIT);
+	insert_vmarea(t->vm, cbase, phy, commit, VM_STACK, VM_RW);
+	u64* rsp;
+	if(t->vm->ref == 1){
+		map_initial_stack(t, cbase, phy, commit);
+		set_mapping(kernel_p2v(phy), phy, 0);
+		rsp = kernel_p2v(phy) + commit*PAGE_SIZE;
+	}
+	else{
+		set_mapping(cbase, phy, PGATTR_NOEXEC);
+		rsp = t->rsp;
+	}
+	t->rsp -= 0x38;
+	rsp[-1] = ProcessEntryStub;
+	rsp[-2] = entry;
+	rsp[-3] = t;
+}
+
+// entry stub: memory(code) resource
+void ProcessEntrySafe(u64 routine, Process* self){
 	int code;
 	__try{
+		if(self->vm->ref == 1){
+			Vmspace* vm = self->vm;
+			for(int i=0; i<vm->count; i++){
+				Vmarea* a = vm->areas+i;
+				if(a->type == VM_STACK) continue;
+				if(a->flag & VM_NOCOMMIT) continue;
+				uint32_t pgattr = 0;
+				if((a->flag & VM_WRITE) == 0) pgattr |= PGATTR_READONLY;
+				if((a->flag & VM_EXECUTE) == 0) pgattr |= PGATTR_NOEXEC;
+				if(a->flag & VM_SHARE){
+					SharedVmarea* sa = a->sharedptr;
+					set_mapping(a->vaddr, sa->paddr, pgattr);
+				}
+				else set_mapping(a->vaddr, a->paddr, pgattr);
+			}
+		}
 		int (*func)()=routine;
 		func();
 	}
@@ -179,21 +231,25 @@ void ProcessEntrySafe(u64 routine,Process* self){
 	}
 	exit_process();
 }
-Bool set_process_entry(Process* t,u64 routine){
-	if(!t)return ErrNull;
-	u64 *rsp=t->rsp;
-	t->rsp-=0x38;
-	rsp[-1]=ProcessEntryStub;
-	rsp[-2]=routine;
-	rsp[-3]=t;
-	return Success;
-}
 
+// fdtable: file descriptor resource
 void alloc_fdtable(Process* p){
 	p->fdtable = kheap_alloc_zero(sizeof(File*) * 16);
 }
 void free_fdtable(Process* p){
 	kheap_free(p->fdtable);
+}
+
+// initialized process creator
+Process* create_process(char* name, Vmspace* vm, 
+		u16 stkrsv, u16 stkcommit, 
+		vaddr_t stkbase, vaddr_t entry){
+	Process* p = alloc_process(name);
+	if(vm == NULL) vm = alloc_vmspace();
+	p->vm = refer_vmspace(vm);
+	alloc_stack(p, stkrsv, stkcommit, stkbase, entry);
+	ready_process(p);
+	return p;
 }
 
 // Ready list stuff
@@ -206,7 +262,7 @@ void del_ready(ReadyList* rl, Process* t){
 	acquire_spin(&rl->lock);
 	for(int i=0; i<rl->cnt; i++){
 		if(rl->list[i] == t){
-			memmove(rl->list+i, rl->list+i+1, (rl->cnt-i-1)*sizeof(Process*));
+			pull_back_array(rl->list, rl->cnt, i, Process*);
 			rl->cnt--;
 			break;
 		}
@@ -215,7 +271,7 @@ void del_ready(ReadyList* rl, Process* t){
 }
 Processor* choose_cpu_for(Process* t){
 	Processor* min=cpus;	// cpu0 by default
-	for(int i=0;i<ncpu;i++){
+	for(int i=1;i<ncpu;i++){
 		Processor* p=cpus+i;
 		if(p->stat!=2)continue;
 		if(!((t->affinity>>i)&1))continue;
@@ -280,7 +336,6 @@ int sched_away(){
 }
 
 int ready_process(Process* t){
-	if(!t)return ErrNull;
 	Processor* p=cpus;
 	p = choose_cpu_for(t);
 	ReadyList* r = &p->ready;
@@ -296,29 +351,35 @@ void wait_process(Process* t){
 	}
 }
 void suspend_process(){
-	Process* t = GetCurrentProcess();
-	del_ready(&cpus[t->curcpu].ready, t);
-	t->stat = Suspend;
+	Process* now = GetCurrentProcess();
+	del_ready(&cpus[now->curcpu].ready, now);
+	now->stat = Suspend;
 	u64 rfl = SaveFlagsCli();
 	sched_away();
 	LoadFlags(rfl);
 }
 void exit_process(){
-	cli();
 	Process* now = GetCurrentProcess();
+	del_ready(&cpus[now->curcpu].ready, now);
 	now->stat = Stopped;
-	return sched_away();
+	cli();
+	sched_away();
 }
 
 IntHandler void sched_tick_ipistub(IntFrame* f){
 	WriteEoi();
 	sched();
 }
-IntHandler void sched_stop_ipistub(IntFrame* f){
+/*IntHandler void sched_stop_ipistub(IntFrame* f){
 	WriteEoi();
 	exit_process();
-}
+}*/
 void sched_init(){
-	set_gatedesc(0x38,sched_tick_ipistub,16,0,3,Interrupt);
-	set_gatedesc(0x3a,sched_stop_ipistub,16,0,3,Interrupt);
+	set_gatedesc(0x38,sched_tick_ipistub,8,0,3,Interrupt);
+	//set_gatedesc(0x3a,sched_stop_ipistub,8,0,3,Interrupt);
+}
+
+void test_proc(){
+	bochsdbg();
+	puts("Hello, test proc!\n");
 }

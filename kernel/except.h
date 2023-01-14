@@ -1,10 +1,5 @@
 #pragma once
 
-/*
-Error code:
-
-*/
-
 #include "types.h"
 
 typedef struct s_jmpbuf{

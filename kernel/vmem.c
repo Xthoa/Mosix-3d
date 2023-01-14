@@ -2,6 +2,7 @@
 #include "vmem.h"
 #include "pmem.h"
 #include "asm.h"
+#include "macros.h"
 
 PUBLIC vaddr_t make_vaddr(u16 pml4o, u16 pdpto, u16 pdo, u16 pto, u16 offset){
     vaddr_t addr = pml4o > 0xff ? 0xffff : 0;
@@ -113,12 +114,12 @@ PUBLIC vaddr_t malloc_page4k(u32 pages){
 }
 PUBLIC vaddr_t malloc_page4k_attr(u32 pages, uint32_t attr){
     paddr_t phy = alloc_phy(pages);
-    vaddr_t lin = KERNEL_BASE + 0x300000 + phy;
+    vaddr_t lin = kernel_p2v(phy);
     set_mapping(lin, phy, attr);
     return lin;
 }
 PUBLIC void free_page4k(vaddr_t lin, u32 pages){
-    paddr_t phy = lin - (KERNEL_BASE + 0x300000);
+    paddr_t phy = kernel_v2p(lin);
     clear_mapping_entry(lin);
     free_phy(phy, pages);
 }

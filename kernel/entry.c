@@ -10,7 +10,7 @@
 // Kernel C code starts from here.
 // This is the entry point in kernel.elf
 // which is loaded at (paddr_t)0x11000.
-
+void test_proc();
 void KernelBootEntry(BootArguments* bargs){
 	/*
 	1. init memory & kheap
@@ -34,7 +34,7 @@ void KernelBootEntry(BootArguments* bargs){
 	smp_init(bargs);
 	Processor* c = GetCurrentProcessorByLapicid();
 	Process* idle = alloc_process("Idle");
-	idle->pagemap = refer_pagemap(&kernmap);
+	idle->vm = refer_vmspace(&kernmap);
 	c->idle = idle;
 	idle->curcpu = c->index;
 	c->cur = idle;
@@ -46,14 +46,17 @@ void KernelBootEntry(BootArguments* bargs){
 	puts("Kernel init done\n");
 
 	bochsdbg();
-	File* file = open("/files/boot/test.txt", 0);
+	
+	/*File* file = open("/files/boot/test.txt", 0);
 	int size = file->size;
 	char* buf = kheap_alloc(size + 1);
 	read(file, buf, size);
 	close(file);
 	buf[size] = '\0';
 	puts(buf);
-	kheap_free(buf);
+	kheap_free(buf);*/
+	
+	Process* p = create_process("test", NULL, 4, 1, 0x80000, test_proc);
 
 	IdleRoutine();
 }
