@@ -34,5 +34,8 @@ acquire_mutex:
     popf
     ret
     .fail:
+    inc rdi
+    call acquire_spin
+    dec rdi
     call block_of_mutex
     jmp .try

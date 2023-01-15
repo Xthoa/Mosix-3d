@@ -11,6 +11,7 @@
 #include "except.h"
 #include "macros.h"
 #include "string.h"
+#include "timer.h"
 
 // Bitmap
 off_t alloc_bit(Bitmap* map){
@@ -76,6 +77,7 @@ Process* alloc_process(char* name){
 	p->jbesp = 0;
 	p->lovedcpu=p->curcpu = 0;
 	p->jbstack = kheap_alloc(sizeof(jmp_buf) * 32);
+	init_waitlist(&p->waiter);
 	return p;
 }
 void free_process(Process* p){
@@ -99,6 +101,7 @@ Vmspace* alloc_vmspace(){
 	Vmspace* map = kheap_alloc(sizeof(Vmspace));
 	map->pml4t = malloc_page4k_attr(1, PGATTR_NOEXEC);
 	map->pml4t[511] = ((pml4t_t)KERNEL_PML4)[511];
+	set_pml4e(map->pml4t + 510, kernel_v2p(map->pml4t), PGATTR_NOEXEC);
 	map->cr3 = get_mapped_phy(map->pml4t);
 	map->ref = 0;
 	map->areas = malloc_page4k_attr(1, PGATTR_NOEXEC);	// max 85 records
@@ -178,13 +181,13 @@ void map_initial_stack(Process* p, vaddr_t lin, paddr_t phy, u16 pages){
 	}
 }
 void ProcessEntryStub();
-void alloc_stack(Process* t, u16 rsv, u16 commit, vaddr_t base, vaddr_t entry){
+void alloc_stack(Process* t, u16 rsv, u16 commit, vaddr_t top, vaddr_t entry){
 	t->sl = rsv;
-	t->rsb = base;
-	t->rsp = base + rsv*PAGE_SIZE;
+	t->rsb = top - rsv*PAGE_SIZE;
+	t->rsp = top;
 	paddr_t phy = alloc_phy(commit);
-	vaddr_t cbase = t->rsp - commit*PAGE_SIZE;
-	insert_vmarea(t->vm, base, 0, rsv, VM_STACK, VM_RW|VM_NOCOMMIT);
+	vaddr_t cbase = top - commit*PAGE_SIZE;
+	insert_vmarea(t->vm, t->rsb, 0, rsv - commit, VM_STACK, VM_RW|VM_NOCOMMIT);
 	insert_vmarea(t->vm, cbase, phy, commit, VM_STACK, VM_RW);
 	u64* rsp;
 	if(t->vm->ref == 1){
@@ -194,7 +197,7 @@ void alloc_stack(Process* t, u16 rsv, u16 commit, vaddr_t base, vaddr_t entry){
 	}
 	else{
 		set_mapping(cbase, phy, PGATTR_NOEXEC);
-		rsp = t->rsp;
+		rsp = top;
 	}
 	t->rsp -= 0x38;
 	rsp[-1] = ProcessEntryStub;
@@ -243,11 +246,11 @@ void free_fdtable(Process* p){
 // initialized process creator
 Process* create_process(char* name, Vmspace* vm, 
 		u16 stkrsv, u16 stkcommit, 
-		vaddr_t stkbase, vaddr_t entry){
+		vaddr_t stktop, vaddr_t entry){
 	Process* p = alloc_process(name);
 	if(vm == NULL) vm = alloc_vmspace();
 	p->vm = refer_vmspace(vm);
-	alloc_stack(p, stkrsv, stkcommit, stkbase, entry);
+	alloc_stack(p, stkrsv, stkcommit, stktop, entry);
 	ready_process(p);
 	return p;
 }
@@ -346,23 +349,33 @@ int ready_process(Process* t){
 	return Success;
 }
 void wait_process(Process* t){
+	if(t->stat == Stopped) return;
+	acquire_spin(&t->waiter.lock);
+	u32 tmp = t->waiter.count++;
+	t->waiter.list[tmp] = GetCurrentProcess();
+	release_spin(&t->waiter.lock);
 	while(t->stat != Stopped){
 		suspend_process();
 	}
 }
 void suspend_process(){
-	Process* now = GetCurrentProcess();
-	del_ready(&cpus[now->curcpu].ready, now);
-	now->stat = Suspend;
 	u64 rfl = SaveFlagsCli();
+	Process* now = GetCurrentProcess();
+	now->stat = Suspend;
+	del_ready(&cpus[now->curcpu].ready, now);
 	sched_away();
 	LoadFlags(rfl);
 }
 void exit_process(){
-	Process* now = GetCurrentProcess();
-	del_ready(&cpus[now->curcpu].ready, now);
-	now->stat = Stopped;
 	cli();
+	Process* now = GetCurrentProcess();
+	now->stat = Stopped;
+	del_ready(&cpus[now->curcpu].ready, now);
+	acquire_spin(&now->waiter.lock);
+	for(int i = 0; i < now->waiter.count; i++){
+		ready_process(now->waiter.list[i]);
+	}
+	release_spin(&now->waiter.lock);
 	sched_away();
 }
 
@@ -379,7 +392,17 @@ void sched_init(){
 	//set_gatedesc(0x3a,sched_stop_ipistub,8,0,3,Interrupt);
 }
 
+void test_proc2(){
+	puts("Hello, test proc 2!\n");
+	u64 t = jiffies + 20;
+	while(t != jiffies)vasm("hlt");
+	puts("test2 exiting\n");
+}
 void test_proc(){
-	bochsdbg();
 	puts("Hello, test proc!\n");
+	bochsdbg();
+	Process* p = create_process("test2", NULL, 4, 1, 0x80000, test_proc2);
+	puts("test2 created!\n");
+	wait_process(p);
+	puts("wait_process returned!\n");
 }

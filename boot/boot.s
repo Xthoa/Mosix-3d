@@ -76,9 +76,9 @@ mov ss,ax
 mov sp,0x7c00
 mov [driveno], dl
 
-KernelSectors equ 58
+KernelSectors equ 62
 ArchiveSectors equ 2
-ArchivePosition equ 68
+ArchivePosition equ 76
 
 mov cx,0x7e0
 mov di,1

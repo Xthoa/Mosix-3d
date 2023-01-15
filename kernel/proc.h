@@ -6,6 +6,7 @@
 #include "pmem.h"
 #include "except.h"
 #include "spin.h"
+#include "mutex.h"
 
 typedef struct s_Bitmap{
 	u32 max;
@@ -90,6 +91,7 @@ typedef struct s_Process{
 	u16 jbesp;
 	
 	volatile u16 stat;
+	Waitlist waiter;
 } Process;
 
 extern Process** pidmap;

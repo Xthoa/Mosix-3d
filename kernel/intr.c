@@ -3,6 +3,7 @@
 #include "intr.h"
 #include "smp.h"
 #include "proc.h"
+#include "vmem.h"
 
 // set a gate in the specified base as a gate table
 void set_gatedesc_base(Gate* base,u8 no,
@@ -90,7 +91,7 @@ void dump_context(){
 
 IntHandler void interr0d(IntFrame* f,u64 code){
 	bochsdbg();
-	puts("\nSystem error: #GP General Protection\n");
+	puts("\nHard exception: #GP General Protection\n");
 	printk("  at %w:%q\n  rsp %p\n",f->cs,f->rip,f->rsp);
 	if(code==0x113)puts("  Cause: Gate.sys = False\n");
 	elif(code){
@@ -103,30 +104,57 @@ IntHandler void interr0d(IntFrame* f,u64 code){
 	hlt();
 }
 
+Bool pfagain = False;
+u64 lastcr2;
+Bool fixed = False;
 IntHandler void interr0e(IntFrame* f,u64 code){
+	u64 cr2 = getcr2();
+	if(pfagain && cr2 == lastcr2){
+		puts("#PF twice, die.\n");	// avoid endless pf
+		hlt();
+	}
+	pfagain = True;
+	lastcr2 = cr2;
+
+	// try to fix it if possible
+	if(fixed) goto next;
+	off_t pml4o = (cr2 >> 39)&0x1ff;
+	if(pml4o == 510){	// self-refering
+		Process* p = GetCurrentProcess();
+		pml4t_t pml4t = p->vm->pml4t;
+		u64 old = *(u64*)(pml4t + 510);
+		set_pml4e(pml4t + 510, p->vm->cr3, PGATTR_NOEXEC);
+		u64 new = *(u64*)(pml4t + 510);
+		printk("\nPage fault of pml4t[510]\n  old = %q\n  new = %q\n", old, new);
+		pfagain = False;
+		fixed = True;
+		return;
+	}
+
+	// impossible, report and die
+	next:
 	bochsdbg();
-	u64 cr2=getcr2();
-	puts("\nSystem error: #PF Page Fault\n");
-	printk("  at %w:%q\n  to %p\n  rsp %p\n",f->cs,f->rip,cr2,f->rsp);
+	puts("\nHard exception: #PF Page Fault\n");
+	printk("  at %w:%q\n  to %p\n  rsp %p\n", f->cs, f->rip ,cr2, f->rsp);
 	printk("%s of %s page in %s mode\n",
 		code&2?"Write":"Read",code&1?"protected":"non-present",code&4?"user":"kernel");
 	dump_context();
-	printk("PDPTE: %q\n",*(u64*)get_mapping_pdpte(cr2));
-	printk("PDE:   %q\n",*(u64*)get_mapping_pde(cr2));
-	printk("PTE:   %q\n",*(u64*)get_mapping_pte(cr2));
+	printk("PDPTE: %q\n", *(u64*)get_mapping_pdpte(cr2));
+	printk("PDE:   %q\n", *(u64*)get_mapping_pde(cr2));
+	printk("PTE:   %q\n", *(u64*)get_mapping_pte(cr2));
 	bochsdbg();
 	//wait_reset();
 	hlt();
 }
 
 IntHandler void interr08(IntFrame* f,u64 code){
-	puts("\nFatal error: #DF Double Fault\n");
+	puts("\nHard exception: #DF Double Fault\n");
 	bochsdbg();
 	hlt();
 }
 
 IntHandler void intall(IntFrame* f){
-	puts("\nSystem error: Interrupt\n");
+	puts("\nHard interrupt (unknown)\n");
 	printk("  at %w:%q\n",f->cs,f->rip);
 	dump_context();
 	bochsdbg();
@@ -134,21 +162,21 @@ IntHandler void intall(IntFrame* f){
 	hlt();
 }
 IntHandler void interr0a(IntFrame* f,u64 code){
-	puts("\nSystem error: #TS Faulty TSS\n");
+	puts("\nHard exception: #TS Faulty TSS\n");
 	printk("  at %w:%q\n  rsp %p\n  code %q\n",f->cs,f->rip,f->rsp);
 	dump_context();
 	bochsdbg();
 	hlt();
 }
 IntHandler void interr0b(IntFrame* f,u64 code){
-	puts("\nSystem error: #NP Segment not present\n");
+	puts("\nHard exception: #NP Segment not present\n");
 	printk("  at %w:%q\n  rsp %p\n  code %q\n",f->cs,f->rip,f->rsp);
 	dump_context();
 	bochsdbg();
 	hlt();
 }
 IntHandler void interr0c(IntFrame* f,u64 code){
-	puts("\nSystem error: #SS Stack fault\n");
+	puts("\nHard exception: #SS Stack fault\n");
 	printk("  at %w:%q\n  rsp %p\n  code %q\n",f->cs,f->rip,f->rsp);
 	dump_context();
 	bochsdbg();

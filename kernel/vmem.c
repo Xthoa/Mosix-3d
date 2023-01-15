@@ -20,6 +20,7 @@ PUBLIC vaddr_t make_vaddr(u16 pml4o, u16 pdpto, u16 pdo, u16 pto, u16 offset){
 }
 
 PUBLIC void set_pte(pte_t* pte, paddr_t addr, uint32_t attr){
+    *(u64*)pte = 0;
     pte->present = True;
     pte->addr = addr >> 12;
     pte->write = attr&PGATTR_READONLY ? False : True;
@@ -29,6 +30,7 @@ PUBLIC void set_pte(pte_t* pte, paddr_t addr, uint32_t attr){
     pte->xd = attr&PGATTR_NOEXEC ? True : False;
 }
 PUBLIC void set_pde(pde_t* pde, paddr_t addr, uint32_t attr){
+    *(u64*)pde = 0;
     pde->present = True;
     pde->addrpt = addr >> 12;
     pde->pg2m = False;
@@ -39,6 +41,7 @@ PUBLIC void set_pde(pde_t* pde, paddr_t addr, uint32_t attr){
     pde->xd = attr&PGATTR_NOEXEC ? True : False;
 }
 PUBLIC void set_pdpte(pdpte_t* pdpte, paddr_t addr, uint32_t attr){
+    *(u64*)pdpte = 0;
     pdpte->present = True;
     pdpte->addrpd = addr >> 12;
     pdpte->pg1g = False;
@@ -49,6 +52,7 @@ PUBLIC void set_pdpte(pdpte_t* pdpte, paddr_t addr, uint32_t attr){
     pdpte->xd = attr&PGATTR_NOEXEC ? True : False;
 }
 PUBLIC void set_pml4e(pml4e_t* pml4e, paddr_t addr, uint32_t attr){
+    *(u64*)pml4e = 0;
     pml4e->present = True;
     pml4e->addr = addr >> 12;
     pml4e->write = attr&PGATTR_READONLY ? False : True;
@@ -81,11 +85,11 @@ PUBLIC void set_mapped_phy(vaddr_t addr, paddr_t phy){
 
 PUBLIC void set_mapping_route(vaddr_t addr, paddr_t phy, uint32_t attr){
     pml4e_t* pml4e = get_mapping_pml4e(addr);
-    if(!pml4e->present) set_pml4e(pml4e, alloc_phy(1), attr);
+    if(!pml4e->present) set_pml4e(pml4e, alloc_phy(1), PGATTR_USER);
     pdpte_t* pdpte = get_mapping_pdpte(addr);
-    if(!pdpte->present) set_pdpte(pdpte, alloc_phy(1), attr);
+    if(!pdpte->present) set_pdpte(pdpte, alloc_phy(1), PGATTR_USER);
     pde_t* pde = get_mapping_pde(addr);
-    if(!pde->present) set_pde(pde, alloc_phy(1), attr);
+    if(!pde->present) set_pde(pde, alloc_phy(1), PGATTR_USER);
 }
 PUBLIC void set_mapping_entry(vaddr_t addr, paddr_t phy, uint32_t attr){
     pte_t* pte = get_mapping_pte(addr);
