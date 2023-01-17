@@ -58,6 +58,6 @@ In virtual memory
 			for libraries use
 	Kernel space
 		0 - 0x60000 284K
-			for kernel (unswapable, 'cuz always in use)
+			for kernel
 		0x200000 - 0x400000 2M
-			for kheap (unswapable, 'cuz often in use)
+			for kheap

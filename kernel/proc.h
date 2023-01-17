@@ -103,13 +103,17 @@ void free_vmspace(Vmspace* map);
 Vmspace* refer_vmspace(Vmspace* map);
 void deref_vmspace(Vmspace* map);
 
+void insert_vmarea(Vmspace* map, vaddr_t vaddr, paddr_t paddr, u32 pages, u16 type, u16 flag);
+void delete_vmarea(Vmspace* map, vaddr_t vaddr);
+Vmarea* find_vmarea(Vmspace* map, vaddr_t vaddr);
+
 Process* alloc_process(char* name);
 void free_process(Process* p);
 Process* find_process(char* name);
 
-void alloc_stack(Process* t, u16 rsv, u16 commit, vaddr_t base, vaddr_t entry);
+void alloc_stack(Process* t, u16 rsv, u16 commit, vaddr_t top, vaddr_t entry);
 
-Process* create_process(char* name, Vmspace* vm, u16 stkrsv, u16 stkcommit, vaddr_t stkbase, vaddr_t entry);
+Process* create_process(char* name, Vmspace* vm, u16 stkrsv, u16 stkcommit, vaddr_t stktop, vaddr_t entry);
 
 int ready_process(Process* t);
 void wait_process(Process* t);

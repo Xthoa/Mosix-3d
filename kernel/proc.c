@@ -102,6 +102,7 @@ Vmspace* alloc_vmspace(){
 	map->pml4t = malloc_page4k_attr(1, PGATTR_NOEXEC);
 	map->pml4t[511] = ((pml4t_t)KERNEL_PML4)[511];
 	set_pml4e(map->pml4t + 510, kernel_v2p(map->pml4t), PGATTR_NOEXEC);
+	memset(map->pml4t, 0, 510*8);
 	map->cr3 = get_mapped_phy(map->pml4t);
 	map->ref = 0;
 	map->areas = malloc_page4k_attr(1, PGATTR_NOEXEC);	// max 85 records
@@ -155,48 +156,54 @@ void delete_vmarea(Vmspace* map, vaddr_t vaddr){
 	ASSERT_ARG(vaddr, "0x%q", vaddr);
 	__throw(2);
 }
+Vmarea* find_vmarea(Vmspace* map, vaddr_t vaddr){
+	acquire_spin(&map->alock);
+	Vmarea* ret = NULL;
+	for(int i=0; i<map->count; i++){
+		Vmarea* vm = map->areas + i;
+		if(vm->vaddr == vaddr){
+			ret = vm;
+			break;
+		}
+	}
+	release_spin(&map->alock);
+	return ret;
+}
 
 // memory(stack) resource
-void map_initial_stack(Process* p, vaddr_t lin, paddr_t phy, u16 pages){
+void map_initial_stack(Process* p, vaddr_t lin, paddr_t phy){
 	pml4t_t pml4 = p->vm->pml4t;
 	off_t pml4o = (lin>>39)&0x1ff;	// bit 39-47
-	off_t pdpto = (lin>>30)&0x1ff;	// bit 30-38
-	off_t pdo = (lin>>21)&0x1ff;	// bit 21-29
-	off_t pdopto = (lin>>12)&0x3ffff;	// bit 12-29
-	off_t apdo = ((pdopto+pages)>>9)&0x1ff;
-	off_t pto = (lin>>12)&0x1ff;	// bit 12-20
 	pdpt_t pdpt = malloc_page4k_attr(1, PGATTR_NOEXEC);
 	set_pml4e(pml4 + pml4o, kernel_v2p(pdpt), PGATTR_USER);
+	off_t pdpto = (lin>>30)&0x1ff;	// bit 30-38
 	pd_t pd = malloc_page4k_attr(1, PGATTR_NOEXEC);
 	set_pdpte(pdpt + pdpto, kernel_v2p(pd), PGATTR_USER);
-	for(; pdo<=apdo; pdo++){
-		pt_t pt = malloc_page4k_attr(1, PGATTR_NOEXEC);
-		set_pde(pd + pdo, kernel_v2p(pt), PGATTR_USER);
-		u32 dest = min(512, pto + pages);
-		for(; pto<dest; pto++, phy += PAGE_SIZE){
-			set_pte(pt + pto, phy, PGATTR_NOEXEC);
-		}
-		pages -= dest - pto;
-		pto = 0;
-	}
+	off_t pdo = (lin>>21)&0x1ff;	// bit 21-29
+	pt_t pt = malloc_page4k_attr(1, PGATTR_NOEXEC);
+	set_pde(pd + pdo, kernel_v2p(pt), PGATTR_USER);
+	off_t pto = (lin>>12)&0x1ff;	// bit 12-20
+	set_pte(pt + pto, phy, PGATTR_NOEXEC);
 }
 void ProcessEntryStub();
 void alloc_stack(Process* t, u16 rsv, u16 commit, vaddr_t top, vaddr_t entry){
 	t->sl = rsv;
 	t->rsb = top - rsv*PAGE_SIZE;
 	t->rsp = top;
-	paddr_t phy = alloc_phy(commit);
-	vaddr_t cbase = top - commit*PAGE_SIZE;
+	paddr_t phy = alloc_phy(commit);	// paddr of commited stack
+	paddr_t ptop = phy + commit*PAGE_SIZE;
+	vaddr_t cbase = top - commit*PAGE_SIZE;	// base vaddr of commited stack
+	vaddr_t mbase = top - PAGE_SIZE;	// base vaddr of stack page0
 	insert_vmarea(t->vm, t->rsb, 0, rsv - commit, VM_STACK, VM_RW|VM_NOCOMMIT);
 	insert_vmarea(t->vm, cbase, phy, commit, VM_STACK, VM_RW);
 	u64* rsp;
 	if(t->vm->ref == 1){
-		map_initial_stack(t, cbase, phy, commit);
-		set_mapping(kernel_p2v(phy), phy, 0);
-		rsp = kernel_p2v(phy) + commit*PAGE_SIZE;
+		map_initial_stack(t, mbase, ptop - PAGE_SIZE);
+		set_mapping(kernel_p2v(ptop - PAGE_SIZE), ptop - PAGE_SIZE, 0);
+		rsp = kernel_p2v(ptop);
 	}
 	else{
-		set_mapping(cbase, phy, PGATTR_NOEXEC);
+		set_mappings(cbase, phy, commit, PGATTR_NOEXEC);
 		rsp = top;
 	}
 	t->rsp -= 0x38;
@@ -213,16 +220,15 @@ void ProcessEntrySafe(u64 routine, Process* self){
 			Vmspace* vm = self->vm;
 			for(int i=0; i<vm->count; i++){
 				Vmarea* a = vm->areas+i;
-				if(a->type == VM_STACK) continue;
 				if(a->flag & VM_NOCOMMIT) continue;
 				uint32_t pgattr = 0;
 				if((a->flag & VM_WRITE) == 0) pgattr |= PGATTR_READONLY;
 				if((a->flag & VM_EXECUTE) == 0) pgattr |= PGATTR_NOEXEC;
 				if(a->flag & VM_SHARE){
 					SharedVmarea* sa = a->sharedptr;
-					set_mapping(a->vaddr, sa->paddr, pgattr);
+					set_mappings(a->vaddr, sa->paddr, a->pages, pgattr);
 				}
-				else set_mapping(a->vaddr, a->paddr, pgattr);
+				else set_mappings(a->vaddr, a->paddr, a->pages, pgattr);
 			}
 		}
 		int (*func)()=routine;
@@ -251,7 +257,6 @@ Process* create_process(char* name, Vmspace* vm,
 	if(vm == NULL) vm = alloc_vmspace();
 	p->vm = refer_vmspace(vm);
 	alloc_stack(p, stkrsv, stkcommit, stktop, entry);
-	ready_process(p);
 	return p;
 }
 
@@ -390,19 +395,4 @@ IntHandler void sched_tick_ipistub(IntFrame* f){
 void sched_init(){
 	set_gatedesc(0x38,sched_tick_ipistub,8,0,3,Interrupt);
 	//set_gatedesc(0x3a,sched_stop_ipistub,8,0,3,Interrupt);
-}
-
-void test_proc2(){
-	puts("Hello, test proc 2!\n");
-	u64 t = jiffies + 20;
-	while(t != jiffies)vasm("hlt");
-	puts("test2 exiting\n");
-}
-void test_proc(){
-	puts("Hello, test proc!\n");
-	bochsdbg();
-	Process* p = create_process("test2", NULL, 4, 1, 0x80000, test_proc2);
-	puts("test2 created!\n");
-	wait_process(p);
-	puts("wait_process returned!\n");
 }

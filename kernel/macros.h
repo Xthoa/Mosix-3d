@@ -4,5 +4,5 @@
 #define push_back_array(arr, count, i, type) memmove(((type*)arr+(i)+1), ((type*)arr+(i)), ((count)-(i))*sizeof(type))
 #define pull_back_array(arr, count, i, type) memmove(((type*)arr+(i)), ((type*)arr+(i)+1), ((count)-(i)-1)*sizeof(type))
 
-#define kernel_p2v(p) (KERNEL_BASE + 0x30000 + (paddr_t)(p))
-#define kernel_v2p(v) ((vaddr_t)(v) - 0x30000 - KERNEL_BASE)
+#define kernel_p2v(p) (KERNEL_BASE + 0x300000 + (paddr_t)(p))
+#define kernel_v2p(v) ((vaddr_t)(v) - 0x300000 - KERNEL_BASE)

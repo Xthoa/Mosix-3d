@@ -83,13 +83,25 @@ PUBLIC void set_mapped_phy(vaddr_t addr, paddr_t phy){
     pte->addr = phy >> 12;
 }
 
-PUBLIC void set_mapping_route(vaddr_t addr, paddr_t phy, uint32_t attr){
+PUBLIC void set_mapping_route(vaddr_t addr, uint32_t attr){
     pml4e_t* pml4e = get_mapping_pml4e(addr);
-    if(!pml4e->present) set_pml4e(pml4e, alloc_phy(1), PGATTR_USER);
+    if(!pml4e->present){
+        set_pml4e(pml4e, alloc_phy(1), PGATTR_USER);
+        pdpt_t pdpt = align_4k(get_mapping_pdpte(addr));
+        memset(pdpt, 0, 4096);
+    }
     pdpte_t* pdpte = get_mapping_pdpte(addr);
-    if(!pdpte->present) set_pdpte(pdpte, alloc_phy(1), PGATTR_USER);
+    if(!pdpte->present){
+        set_pdpte(pdpte, alloc_phy(1), PGATTR_USER);
+        pd_t pd = align_4k(get_mapping_pde(addr));
+        memset(pd, 0, 4096);
+    }
     pde_t* pde = get_mapping_pde(addr);
-    if(!pde->present) set_pde(pde, alloc_phy(1), PGATTR_USER);
+    if(!pde->present){
+        set_pde(pde, alloc_phy(1), PGATTR_USER);
+        pt_t pt = align_4k(get_mapping_pte(addr));
+        memset(pt, 0, 4096);
+    }
 }
 PUBLIC void set_mapping_entry(vaddr_t addr, paddr_t phy, uint32_t attr){
     pte_t* pte = get_mapping_pte(addr);
@@ -102,7 +114,7 @@ PUBLIC void set_mapping_entry(vaddr_t addr, paddr_t phy, uint32_t attr){
     set_pte(pte, phy, attr);
 }
 PUBLIC void set_mapping(vaddr_t addr, paddr_t phy, uint32_t attr){
-    set_mapping_route(addr, phy, 0);
+    set_mapping_route(addr, 0);
     set_mapping_entry(addr, phy, attr);
 }
 PUBLIC void clear_mapping_entry(vaddr_t addr){
@@ -110,20 +122,28 @@ PUBLIC void clear_mapping_entry(vaddr_t addr){
     pte->present = False;
 }
 
+PUBLIC void set_mappings(vaddr_t addr, paddr_t phy, u32 size, u32 attr){
+    u64 linidx = addr >> 12;
+    set_mapping_route(addr, 0);
+    for(int i = 0; i < size; i++, addr += PAGE_SIZE, phy += PAGE_SIZE){
+        if((addr >> 12) != linidx) set_mapping_route(addr, 0);
+        set_mapping_entry(addr, phy, attr);
+    }
+}
+
 PUBLIC vaddr_t malloc_page4k(u32 pages){
     paddr_t phy = alloc_phy(pages);
-    vaddr_t lin = KERNEL_BASE + 0x300000 + phy;
-    set_mapping(lin, phy, 0);
+    vaddr_t lin = kernel_p2v(phy);
+    set_mappings(lin, phy, pages, 0);
     return lin;
 }
 PUBLIC vaddr_t malloc_page4k_attr(u32 pages, uint32_t attr){
     paddr_t phy = alloc_phy(pages);
     vaddr_t lin = kernel_p2v(phy);
-    set_mapping(lin, phy, attr);
+    set_mappings(lin, phy, pages, attr);
     return lin;
 }
 PUBLIC void free_page4k(vaddr_t lin, u32 pages){
     paddr_t phy = kernel_v2p(lin);
-    clear_mapping_entry(lin);
     free_phy(phy, pages);
 }

@@ -12,22 +12,22 @@
 #define SELF_REF3_ADDR (SELF_REF2_ADDR + (SELF_REF_INDEX << 21))
 #define SELF_REF4_ADDR (SELF_REF3_ADDR + (SELF_REF_INDEX << 12))
 
-#define get_index(a) (((a)>>12)&0xfffffffff)
-#define extract_pml4o_macro(a) (((a)>>39)&0x1ff)
-#define extract_pdpto_macro(a) (((a)>>30)&0x1ff)
-#define extract_pdo_macro(a) (((a)>>21)&0x1ff)
-#define extract_pto_macro(a) (((a)>>12)&0x1ff)
+#define get_index(a) (((u64)(a)>>12)&0xfffffffff)
+#define extract_pml4o_macro(a) (((u64)(a)>>39)&0x1ff)
+#define extract_pdpto_macro(a) (((u64)(a)>>30)&0x1ff)
+#define extract_pdo_macro(a) (((u64)(a)>>21)&0x1ff)
+#define extract_pto_macro(a) (((u64)(a)>>12)&0x1ff)
 
-#define pages4k(s) (((s)+0xfff)>>12)
-#define pages2m(s) (((s)+0x1fffff)>>21)
+#define pages4k(s) (((u64)(s)+0xfff)>>12)
+#define pages2m(s) (((u64)(s)+0x1fffff)>>21)
 
-#define page4koff(s) ((s)&0xfff)
-#define page2moff(s) ((s)&0x1fffff)
+#define page4koff(s) ((u64)(s)&0xfff)
+#define page2moff(s) ((u64)(s)&0x1fffff)
 
-#define align_4k(a) ((a)&0xfffffffffffff000)
-#define align_4k_up(a) (((a)+0xfff)&0xfffffffffffff000)
-#define align_2m(a) ((a)&0xffffffffffe00000)
-#define align_2m_up(a) (((a)+0x1fffff)&0xffffffffffe00000)
+#define align_4k(a) ((u64)(a)&0xfffffffffffff000)
+#define align_4k_up(a) (((u64)(a)+0xfff)&0xfffffffffffff000)
+#define align_2m(a) ((u64)(a)&0xffffffffffe00000)
+#define align_2m_up(a) (((u64)(a)+0x1fffff)&0xffffffffffe00000)
 
 #define get_pdpt_phy(e) (((e).addr)<<12)
 #define get_pd_phy(e) (((e).addrpd)<<12)
@@ -147,9 +147,10 @@ void set_pml4e(pml4e_t* pml4e, paddr_t addr, uint32_t attr);
 
 paddr_t get_mapped_phy(vaddr_t addr);
 void set_mapped_phy(vaddr_t addr, paddr_t phy);
-void set_mapping_route(vaddr_t addr, paddr_t phy, uint32_t attr);
+void set_mapping_route(vaddr_t addr, uint32_t attr);
 void set_mapping_entry(vaddr_t addr, paddr_t phy, uint32_t attr);
 void set_mapping(vaddr_t addr, paddr_t phy, uint32_t attr);
+void set_mappings(vaddr_t addr, paddr_t phy, u32 size, u32 attr);
 void clear_mapping_entry(vaddr_t addr);
 
 vaddr_t malloc_page4k(u32 pages);

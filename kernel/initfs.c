@@ -49,7 +49,8 @@ PRIVATE int initfs_open(Node* node, File* file){
 }
 PRIVATE int initfs_read(File* f, char* buf, size_t size){
 	if(f->off + size > f->size) size = f->size - f->off;
-	memmove(buf, f->data, size);
+	memmove(buf, (u8*)f->data + f->off, size);
+	f->off += size;
 	return size;
 }
 PRIVATE int initfs_write(File* f, char* buf, size_t size){

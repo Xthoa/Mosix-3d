@@ -1,8 +1,11 @@
 default: archive
 
-arch = test.txt
+arch = test.txt init.exe
 
-archive: $(arch)
+ckexe = make -f pe-exe-kern-c.make
+
+archive:
+	$(ckexe) init.exe
 	tar -cf archive.tar $(arch)
 	cp archive.tar ..
 

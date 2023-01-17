@@ -162,8 +162,8 @@ PUBLIC Node* path_walk(const char* name){
 
 PUBLIC File* open(char* path, int flag){
 	Node* node = path_walk(path);
-	if(!node) return -2;
-	if(node->attr & NODE_DIRECTORY) return -1;
+	if(!node) return NULL;
+	if(node->attr & NODE_DIRECTORY) return NULL;
 	File* f = kheap_alloc(sizeof(File));
 	f->node = node;
 	f->mode = flag;

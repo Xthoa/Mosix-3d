@@ -12,7 +12,7 @@ objs = entry.o string.o kheap.o pmem.o \
 		intr.o vfs.o vmem.o cpuid.o apic.o \
 		timer.o except.o longjmp.o smp.o \
 		apcode.o lock.o proc.o swtch.o mutex.o \
-		fork.o initfs.o cga.o
+		fork.o initfs.o cga.o exec.o 
 
 %.o: %.asm
 	nasm -f elf64 -o $@ $<
