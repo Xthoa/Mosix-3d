@@ -79,7 +79,7 @@ PUBLIC void flist_dealloc(Freelist *aloc,u64 addr,u32 size){
 		end = self; self = front; i--;
         aloc->size--;
 	}
-	if(i != aloc->size && end->pos == addr + size){
+	if(i != aloc->size - 1 && end->pos == addr + size){
 		self->size += end->size;
 		pull_back_array(aloc->root, aloc->size, i+1, Extent);
 		aloc->size--;

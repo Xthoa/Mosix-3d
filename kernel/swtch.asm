@@ -9,9 +9,9 @@ switch_context:  ;void switch_context(* now, * next);
     push r13
     push r14
     push r15
-    mov [rdi+8],rsp
-    mov rsp,[rsi+8]     ; Process* -> rsp
-    mov rax,[rsi]    ; Process* -> vm
+    mov [rdi + 0x14],rsp
+    mov rsp,[rsi + 0x14]     ; Process* -> rsp
+    mov rax,[rsi + 0x0c]    ; Process* -> vm
     mov rax,[rax]     ; Vmspace* -> cr3
     mov rbx,cr3
     cmp rbx,rax
@@ -30,8 +30,8 @@ global ProcessEntryStub
 extern ProcessEntrySafe
 ProcessEntryStub:    ; rbx=routine
     sti
-    mov al,byte [fs:26]   ; Process*->curcpu
-    mov byte [fs:27],al   ; Process*->lovedcpu
+    mov al,byte [fs:0x26]   ; Process*->curcpu
+    mov byte [fs:0x27],al   ; Process*->lovedcpu
     mov rdi,rbx
-    mov rsi,[fs:0x28]
+    mov rsi,[fs:0x34]   ; Process*->fsbase (self)
     jmp ProcessEntrySafe

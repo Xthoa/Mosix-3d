@@ -41,6 +41,8 @@
 #define PGATTR_READONLY 8
 #define PGATTR_NOEXEC 16
 
+#pragma pack(1)
+
 // page table structures on x86_64
 typedef struct s_PML4E{
 	union{
@@ -134,6 +136,8 @@ typedef struct s_PTE{
 		u64 entry;
 	}__attribute__((gcc_union,packed));
 }tight PTE, pte_t, *pt_t;
+
+
 
 pte_t* get_mapping_pte(vaddr_t addr);
 pde_t* get_mapping_pde(vaddr_t addr);

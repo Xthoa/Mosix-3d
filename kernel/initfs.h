@@ -5,6 +5,7 @@
 
 #define ARCHIVE_ADDR ((TarMetadata*)(KERNEL_BASE + 0x20000))
 
+#pragma pack(1)
 typedef struct s_TarMetadata{
     char name[100];
     char mode[8];
@@ -24,3 +25,4 @@ typedef struct s_TarMetadata{
     char fnprefix[155];
     u8 pad[12];
 } TarMetadata;
+

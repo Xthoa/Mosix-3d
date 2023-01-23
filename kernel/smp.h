@@ -4,6 +4,8 @@
 #include "proc.h"
 #include "spin.h"
 
+#pragma pack(1)
+
 // ACPI Region
 typedef struct s_Rsdptr{
 	//1.0
@@ -127,6 +129,8 @@ typedef struct s_cpu{
 	ReadyList ready;// +128 0x80
     u64 :24;
 } Processor;	// 144 0x90
+
+
 
 #define CPU_NONE 0
 #define CPU_INIT 1

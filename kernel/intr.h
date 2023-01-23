@@ -14,6 +14,8 @@ enum e_GateType{
 	Interrupt=0xe,
 	TrapGate=0xf,
 };
+
+#pragma pack(1)
 typedef struct s_Gate{
 	Word off;
 	Word sel;
@@ -53,3 +55,4 @@ typedef struct s_IntFrame{
 	vaddr_t rsp;
 	u64 ss;
 } IntFrame;
+

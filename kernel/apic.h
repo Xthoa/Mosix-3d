@@ -61,6 +61,8 @@ enum e_DeliveryMode{
 	ExtIntr
 };
 
+#pragma pack(1)
+
 // IPI command register for lapic
 typedef struct s_IpiCommand{
 	u8 vector;
@@ -103,6 +105,8 @@ typedef struct s_IntrRedirect{
 	u64 :15;
 	u32 dest;
 } tight IntrRedirect;
+
+
 
 u64 GetRedirect(uint32_t irq);
 void SetRedirect(uint32_t irq, IntrRedirect entry);

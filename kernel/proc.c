@@ -77,7 +77,10 @@ Process* alloc_process(char* name){
 	p->jbesp = 0;
 	p->lovedcpu=p->curcpu = 0;
 	p->jbstack = kheap_alloc(sizeof(jmp_buf) * 32);
-	init_waitlist(&p->waiter);
+	init_dispatcher(&p->waiter, DISPATCH_PROCESS);
+	p->waitcnt = 0;
+	p->waitings = NULL;
+	init_spinlock(&p->rundown);
 	return p;
 }
 void free_process(Process* p){
@@ -244,6 +247,7 @@ void ProcessEntrySafe(u64 routine, Process* self){
 // fdtable: file descriptor resource
 void alloc_fdtable(Process* p){
 	p->fdtable = kheap_alloc_zero(sizeof(File*) * 16);
+	init_spinlock(&p->fdtlock);
 }
 void free_fdtable(Process* p){
 	kheap_free(p->fdtable);

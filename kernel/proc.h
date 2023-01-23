@@ -69,29 +69,33 @@ typedef struct s_Vmspace{
 } Vmspace;	// work as mm_struct in linux
 
 typedef struct s_Process{
-	Vmspace* vm;
+	Dispatcher waiter;
 
-	u64 rsp;	// RSP in context switch
-	vaddr_t rsb;	// stack position
-	u16 sl;		// reserved stack (by pages)
+	Vmspace* vm;	// [ASM 0x0c]
+	u64 rsp;	// RSP in context switch [ASM 0x14]
+	vaddr_t rsb;	// stack position 0x1c
+	u16 sl;		// reserved stack (by pages) 0x24
 
-	u8 curcpu;		// currently running on [USED BY ASSEMBLY, 0x1a]
-	u8 lovedcpu;	// suggested processor
-	u16 affinity;	// for every bit 1=allowance
+	u8 curcpu;		// currently running on [ASM 0x26]
+	u8 lovedcpu;	// suggested processor [ASM 0x27]
+	u16 affinity;	// for every bit 1=allowance 0x28
 
-	u16 pid;
-	char* name;
+	u16 pid;	// 0x2a
+	char* name;	// 0x2c
 
-	u64 fsbase;	// 0x28
+	u64 fsbase;	// 0x34
 	u64 gsbase;
 
 	File** fdtable;
+	Dispatcher** waitings;
+	u16 waitcnt;
 
-	jmp_buf* jbstack;
 	u16 jbesp;
+	jmp_buf* jbstack;
 	
 	volatile u16 stat;
-	Waitlist waiter;
+	Spinlock rundown;
+	Spinlock fdtlock;
 } Process;
 
 extern Process** pidmap;

@@ -5,6 +5,8 @@
 #define BootSegment KERNEL_BASE+0x48000
 // #define BootArgument ((BootArguments*)(BootSegment+0x2000))
 
+#pragma pack(1)
+
 typedef struct s_BootArgs{
     u32 video_modes;
     u16 xsize;
@@ -20,3 +22,5 @@ typedef struct s_BootArgs{
     vaddr_t curmode_info;
     vaddr_t ards;
 } BootArguments;
+
+
