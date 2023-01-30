@@ -7,12 +7,7 @@
 #include "except.h"
 #include "spin.h"
 #include "mutex.h"
-
-typedef struct s_Bitmap{
-	u32 max;
-	u32 size;
-	char data[];
-} Bitmap;
+#include "handle.h"
 
 #define MAXPROC 1984
 
@@ -86,7 +81,7 @@ typedef struct s_Process{
 	u64 fsbase;	// 0x34
 	u64 gsbase;
 
-	File** fdtable;
+	HandleTable htab;
 	Dispatcher** waitings;
 	u16 waitcnt;
 
@@ -94,8 +89,8 @@ typedef struct s_Process{
 	jmp_buf* jbstack;
 	
 	volatile u16 stat;
+	u16 href;	// handle reference count
 	Spinlock rundown;
-	Spinlock fdtlock;
 } Process;
 
 extern Process** pidmap;
@@ -123,7 +118,7 @@ int ready_process(Process* t);
 void wait_process(Process* t);
 void suspend_process();
 void exit_process();
-
+void reap_process(Process* p);
 int fork_process();
 
 Process* GetCurrentProcess();

@@ -12,6 +12,7 @@ void pmem_init(BootArguments* bargs){
     phyflist.root = PmemExtentRoot;
     phyflist.max = 112; // 0x700 / 16 = 112
     phyflist.size = 0;
+	init_spinlock(&phyflist.lock);
 
     ArdsBlock* ards = bargs->ards;
     for(int i = 0; i < bargs->ardscnt; i++){
@@ -32,6 +33,7 @@ void pmem_init(BootArguments* bargs){
 
 // alloc&dealloc on general Freelist
 PUBLIC u64 flist_alloc(Freelist *aloc,u32 size){
+	acquire_spin(&phyflist.lock);
 	u64 addr=0;
 	for(int i = 0; i < aloc->size; i++){
 		Extent* f= aloc->root + i;
@@ -48,9 +50,11 @@ PUBLIC u64 flist_alloc(Freelist *aloc,u32 size){
 			break;
 		}
 	}
+	release_spin(&phyflist.lock);
 	return addr;
 }
 PUBLIC void flist_dealloc(Freelist *aloc,u64 addr,u32 size){
+	acquire_spin(&phyflist.lock);
 	u32 i,len;
 	for(i = 0; i < aloc->size; i++){
 		Extent* f= aloc->root + i;
@@ -84,7 +88,19 @@ PUBLIC void flist_dealloc(Freelist *aloc,u64 addr,u32 size){
 		pull_back_array(aloc->root, aloc->size, i+1, Extent);
 		aloc->size--;
 	}
+	release_spin(&phyflist.lock);
 	return;
+}
+
+u32 total_phy_avail(){
+	acquire_spin(&phyflist.lock);
+	u32 total = 0;
+	for(int i = 0; i < phyflist.size; i++){
+		Extent* e = phyflist.root + i;
+		total += e->size;
+	}
+	release_spin(&phyflist.lock);
+	return total;
 }
 
 // General interface on physical memory management

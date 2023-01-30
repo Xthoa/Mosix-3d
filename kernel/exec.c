@@ -82,3 +82,17 @@ Process* ExecuteFile(char* path){
     close(f);
     return p;
 }
+
+// this process is used to finish workitems or do tests
+void sysproc(){
+    u32 free = total_phy_avail();
+    printk("free mem: %BG %WM %WK\n", free>>18, (free>>8)&0x3ff, (free*4)&0x3ff);
+
+    Process* p = ExecuteFile("/files/boot/init.exe");
+    wait_process(p);
+
+    free = total_phy_avail();
+    printk("free mem: %BG %WM %WK\n", free>>18, (free>>8)&0x3ff, (free*4)&0x3ff);
+
+    suspend_process();
+}

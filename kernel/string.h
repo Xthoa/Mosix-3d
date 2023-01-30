@@ -4,6 +4,8 @@
 
 int memcmp(const void *v1, const void *v2, uint n);
 void *memmem(u8 *str, u8 *sub_str, size_t ssz, size_t sssz,size_t bound);
+void* memmove(void *dst, const void *src, uint n);
+void* memcpy(void *dst, const void *src, uint n);
 
 void memset(void* dst,int val,size_t sz);
 

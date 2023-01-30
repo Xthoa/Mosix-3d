@@ -167,30 +167,15 @@ PUBLIC File* open(char* path, int flag){
 	File* f = kheap_alloc(sizeof(File));
 	f->node = node;
 	f->mode = flag;
+	f->href = 0;
 	f->fops = node->fops;
 	f->size = node->size;
 	if(f->fops && f->fops->open) f->fops->open(node, f);
 	return f;
 }
-PUBLIC int open_fd(Process* p, char* path, int flag){
-	File** fp = p->fdtable;
-	for(int i=0; i<16; i++){
-		if(fp[i] == NULL){
-			fp[i] = open(path, flag);
-			return i;
-		}
-	}
-	return -1;
-}
 PUBLIC void close(File* f){
 	if(f->fops && f->fops->close) f->fops->close(f->node, f);
 	kheap_free(f);
-}
-PUBLIC int close_fd(Process* p, int fd){
-	File* f = p->fdtable[fd];
-	if(f == NULL) return -1;
-	close(f);
-	return 0;
 }
 PUBLIC int read(File* f, char* buf, size_t size){
 	if(f->fops && f->fops->read)

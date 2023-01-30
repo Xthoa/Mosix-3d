@@ -32,6 +32,7 @@ PUBLIC void init_dispatcher(Dispatcher* wl, u8 type){
 }
 PUBLIC void init_mutex(Mutex* m){
     m->owner = NULL;
+    m->href = 0;
     init_dispatcher(&m->waiter, DISPATCH_MUTEX);
     m->owned = 1;
 }

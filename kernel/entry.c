@@ -11,7 +11,7 @@
 // Kernel C code starts from here.
 // This is the entry point in kernel.elf
 // which is loaded at (paddr_t)0x11000.
-void test_proc();
+void sysproc();
 void KernelBootEntry(BootArguments* bargs){
 	/*
 	1. init memory & kheap
@@ -48,7 +48,8 @@ void KernelBootEntry(BootArguments* bargs){
 
 	bochsdbg();
 	
-    ExecuteFile("/files/boot/init.exe");
+	Process* sys = create_process("System", NULL, 4, 4, 0x200000, sysproc);
+	ready_process(sys);
 
 	IdleRoutine();
 }

@@ -23,6 +23,7 @@ typedef struct s_Mutex{
     Dispatcher waiter;
     Process* owner;
     volatile uint8_t owned; // 20
+    u8 href;    // handle reference count
 } Mutex;
 
 

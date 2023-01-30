@@ -54,7 +54,8 @@ typedef struct s_File{
     struct s_FileOperations* fops; // shortcut of operations
     u64 size;
     u64 off;      // generally offset of r/w pointer
-    u64 mode;
+    u32 mode;
+    u32 href;    // handle reference count
     u64* data;
 } File;
 typedef struct s_FileOperations{
@@ -109,9 +110,7 @@ Node* path_walk(const char* name);
 
 typedef struct s_Process Process;
 File* open(char* path, int flag);
-int open_fd(Process* p, char* path, int flag);
 void close(File* f);
-int close_fd(Process* p, int fd);
 int read(File* f, char* buf, size_t size);
 int write(File* f, char* buf, size_t size);
 int lseek(File* f, off_t off, int origin);
