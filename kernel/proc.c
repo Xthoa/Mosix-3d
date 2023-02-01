@@ -315,45 +315,40 @@ void switch_to(Processor* p,Process* now,Process* next){
 	// my lenovo ideapad doesnt support gsbase
 	switch_context(now,next);
 }
-int sched(){
-	Processor* p=GetCurrentProcessorByLapicid();
+void sched(){
+	Processor* p = GetCurrentProcessorByLapicid();
 	if(p->tickleft){
-		p->tickleft--;
-		return ErrReject;
+		p->tickleft --;
+		return;
 	}
-	Process* now=p->cur;
-	ReadyList* r=&p->ready;
-	if(r->cnt>1 || now==p->idle && r->cnt>0){
-		acquire_spin(&r->lock);
+	Process* now = p->cur;
+	ReadyList* r = &p->ready;
+	acquire_spin(&r->lock);
+	if(r->cnt > 1 || now == p->idle && r->cnt > 0){
 		r->cur++;
 		if(r->cur==r->cnt)r->cur=0;
 		Process* next=r->list[r->cur];
 		release_spin(&r->lock);
 		if(!next){
-			// puts("Fatal Panic: next thread is NULL\n");
+			// puts("Fatal Panic: next process is NULL\n");
 			// dump_context();
 			hlt();
 		}
 		now->stat=Ready;
 		switch_to(p,now,next);
-		return Success;
 	}
-	else return ErrNotFound;
+	else release_spin(&r->lock);
 }
-int sched_away(){
-	Processor* p=GetCurrentProcessorByLapicid();
-	Process* now=p->cur;
-	ReadyList* r=&p->ready;
-	if(r->cnt>1){	// now must != idle
-		acquire_spin(&r->lock);
-		r->cur++;
-		if(r->cur==r->cnt)r->cur=0;
-		Process* next=r->list[r->cur];
-		release_spin(&r->lock);
-		switch_to(p,now,next);
-		return Success;
-	}
-	else switch_to(p,now,p->idle);
+void sched_away(){
+	Processor* p = GetCurrentProcessorByLapicid();
+	Process* now = p->cur;
+	ReadyList* r = &p->ready;
+	Process* next = p->idle;
+	acquire_spin(&r->lock);
+	if(r->cur == r->cnt) r->cur=0;
+	if(r->cnt > 1) next = r->list[r->cur];
+	release_spin(&r->lock);
+	switch_to(p,now,next);
 }
 
 int ready_process(Process* t){
@@ -361,7 +356,9 @@ int ready_process(Process* t){
 	p = choose_cpu_for(t);
 	ReadyList* r = &p->ready;
 	if(r->cnt >= 32)return ErrFull;
+	u64 rfl = SaveFlagsCli();	// raise irql to dispatch-level
 	add_ready(t, r);
+	LoadFlags(rfl);
 	t->curcpu = p->index;
 	t->stat = Ready;
 	return Success;
@@ -377,7 +374,7 @@ void wait_process(Process* t){
 	}
 }
 void suspend_process(){
-	u64 rfl = SaveFlagsCli();
+	u64 rfl = SaveFlagsCli();	// raise irql to dispatch-level
 	Process* now = GetCurrentProcess();
 	now->stat = Suspend;
 	del_ready(&cpus[now->curcpu].ready, now);
@@ -385,7 +382,7 @@ void suspend_process(){
 	LoadFlags(rfl);
 }
 void exit_process(){
-	cli();
+	cli();	// raise irql to dispatch-level
 	Process* now = GetCurrentProcess();
 	now->stat = Stopped;
 	del_ready(&cpus[now->curcpu].ready, now);

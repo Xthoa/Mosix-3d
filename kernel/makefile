@@ -13,7 +13,7 @@ objs = entry.o string.o kheap.o pmem.o \
 		timer.o except.o longjmp.o smp.o \
 		apcode.o lock.o proc.o swtch.o mutex.o \
 		fork.o initfs.o cga.o exec.o bitmap.o \
-		handle.o 
+		handle.o msglist.o sysproc.o 
 
 %.o: %.asm
 	nasm -f elf64 -o $@ $<

@@ -9,15 +9,19 @@
 #define DISPATCH_PROCESS 1
 #define DISPATCH_MUTEX 2
 #define DISPATCH_TIMER 3
+#define DISPATCH_MSGLIST 4
 
 #pragma pack(1)
 typedef struct s_Process Process;
-typedef struct s_Waitlist{
+typedef struct s_Dispatcher{
+    uint8_t type;
     Spinlock lock;
     volatile uint8_t count;
-    uint8_t type;
     uint8_t flags;
-    Process** list;
+    union{
+        Process** list;
+        Process* waiter;
+    };
 } Dispatcher;   // 12
 typedef struct s_Mutex{
     Dispatcher waiter;

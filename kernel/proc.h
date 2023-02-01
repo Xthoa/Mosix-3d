@@ -8,6 +8,7 @@
 #include "spin.h"
 #include "mutex.h"
 #include "handle.h"
+#include "msglist.h"
 
 #define MAXPROC 1984
 
@@ -94,8 +95,8 @@ typedef struct s_Process{
 } Process;
 
 extern Process** pidmap;
-
 extern Vmspace kernmap;
+extern MessageList* sysprocml;
 
 Vmspace* alloc_vmspace();
 void free_vmspace(Vmspace* map);
