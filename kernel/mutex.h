@@ -36,5 +36,6 @@ void release_mutex(Mutex* m);
 void init_mutex(Mutex* m);
 
 void init_dispatcher(Dispatcher* wl, u8 type);
+void free_dispatcher(Dispatcher* wl);
 void wait_dispatcher(Dispatcher* d);
 void wait_multiple_dispatcher(Dispatcher** list, u32 count);

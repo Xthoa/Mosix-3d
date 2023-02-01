@@ -15,5 +15,7 @@ void* kheap_clonestr(char* str);
 void kheap_freestr(char* str);
 uint16_t kstrlen(char* kstr);
 
+u32 total_kheap_avail();
+
 #define kalloc kheap_alloc
 #define kfree kheap_free

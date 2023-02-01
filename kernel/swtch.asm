@@ -26,6 +26,25 @@ switch_context:  ;void switch_context(* now, * next);
     pop rbx
     ret
 
+global switch_context_exit
+switch_context_exit:  ;void switch_context_exit(* now, * next, * now.stat);
+    mov rsp,[rsi + 0x14]     ; Process* -> rsp
+    mov rax,[rsi + 0x0c]    ; Process* -> vm
+    mov rax,[rax]     ; Vmspace* -> cr3
+    mov word [rdx], 7
+    mov rbx,cr3
+    cmp rbx,rax
+    jz .1
+    mov cr3,rax  ; avoid flushing TLB
+    .1:
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    pop rbp
+    pop rbx
+    ret
+
 global ProcessEntryStub
 extern ProcessEntrySafe
 ProcessEntryStub:    ; rbx=routine

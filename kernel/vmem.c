@@ -88,19 +88,19 @@ PUBLIC void set_mapping_route(vaddr_t addr, uint32_t attr){
     if(!pml4e->present){
         set_pml4e(pml4e, alloc_phy(1), PGATTR_USER);
         pdpt_t pdpt = align_4k(get_mapping_pdpte(addr));
-        memset(pdpt, 0, 4096);
+        memset(pdpt, 0, PAGE_SIZE);
     }
     pdpte_t* pdpte = get_mapping_pdpte(addr);
     if(!pdpte->present){
         set_pdpte(pdpte, alloc_phy(1), PGATTR_USER);
         pd_t pd = align_4k(get_mapping_pde(addr));
-        memset(pd, 0, 4096);
+        memset(pd, 0, PAGE_SIZE);
     }
     pde_t* pde = get_mapping_pde(addr);
     if(!pde->present){
         set_pde(pde, alloc_phy(1), PGATTR_USER);
         pt_t pt = align_4k(get_mapping_pte(addr));
-        memset(pt, 0, 4096);
+        memset(pt, 0, PAGE_SIZE);
     }
 }
 PUBLIC void set_mapping_entry(vaddr_t addr, paddr_t phy, uint32_t attr){

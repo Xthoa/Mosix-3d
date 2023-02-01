@@ -8,6 +8,7 @@ PRIVATE Freelist kheapflist;
 void kheap_init(){
     kheapflist.max = 128;
     kheapflist.size = 1;
+    init_spinlock(&kheapflist.lock);
     Extent* r = kheapflist.root = KHEAP_EXTENT_ROOT;
     r->pos = KHEAP_BASE;
     r->size = KHEAP_INITIAL_SIZE;
@@ -27,7 +28,7 @@ PUBLIC void* kheap_alloc_zero(u32 size){
 }
 PUBLIC void kheap_free(void* ptr){
     u32 size = *(u32*)((vaddr_t)ptr - 4);
-    flist_dealloc(&kheapflist, ptr, size);
+    flist_dealloc(&kheapflist, (vaddr_t)ptr - 4, size);
 }
 
 // clone and free strings which are temp or readonly
@@ -45,4 +46,8 @@ PUBLIC void kheap_freestr(char* str){
 PUBLIC uint16_t kstrlen(char* kstr){
     ushort* ptr = (short*)(kstr - 2);
     return ptr[0];
+}
+
+u32 total_kheap_avail(){
+    return total_avail(&kheapflist);
 }

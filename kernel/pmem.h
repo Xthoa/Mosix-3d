@@ -19,6 +19,7 @@ typedef struct s_Freelist{
 u64 flist_alloc(Freelist *aloc,u32 size);
 void flist_dealloc(Freelist* fl,u64 addr, u32 size);
 
+u32 total_avail(Freelist* fl);
 u32 total_phy_avail();
 
 paddr_t alloc_phy(uint32_t pages);

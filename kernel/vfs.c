@@ -167,6 +167,7 @@ PUBLIC File* open(char* path, int flag){
 	File* f = kheap_alloc(sizeof(File));
 	f->node = node;
 	f->mode = flag;
+	f->off = 0;
 	f->href = 0;
 	f->fops = node->fops;
 	f->size = node->size;

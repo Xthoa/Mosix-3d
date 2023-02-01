@@ -18,8 +18,8 @@ typedef enum e_ProcStatus{
 	Ready=3,	// Be ready to run
 //	Blocked=4,	// Blocked
 	Suspend=5,	// Suspended or sleeping
-	Stopped=6,	// Wholy stopped
-//	Confirmed=7	// Creator is aware of stop
+	Stopped=6,	// exited
+	Dead=7		// got down of cpu
 } ProcStatus;
 
 #define VM_READ 1	// readable
@@ -38,6 +38,8 @@ typedef enum e_ProcStatus{
 #define VM_STACK 4
 #define VM_HEAP 8
 #define VM_DATA 0x10	// (allocated space) private data
+
+#define SPMSG_REAP 1
 
 typedef struct s_SharedVmarea{
 	paddr_t paddr;
@@ -120,6 +122,7 @@ void wait_process(Process* t);
 void suspend_process();
 void exit_process();
 void reap_process(Process* p);
+void do_reap_process(Process* p);
 int fork_process();
 
 Process* GetCurrentProcess();

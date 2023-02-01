@@ -56,12 +56,13 @@ Process* alloc_process(char* name){
 	init_dispatcher(&p->waiter, DISPATCH_PROCESS);
 	p->waitcnt = 0;
 	p->waitings = NULL;
-	p->href = 0;
+	p->href = 1;
 	init_spinlock(&p->rundown);
 	return p;
 }
 void free_process(Process* p){
 	kheap_free(p->jbstack);
+	free_dispatcher(p);
 	pidmap[p->pid] = NULL;
 	free_bit(procmap, p->pid);
 	kheap_freestr(p->name);
@@ -91,6 +92,7 @@ Vmspace* alloc_vmspace(){
 	return map;
 }
 void free_vmspace(Vmspace* map){
+	free_page4k(map->areas, 1);
 	free_page4k(map->pml4t, 1);
 	kheap_free(map);
 }
@@ -155,12 +157,15 @@ void map_initial_stack(Process* p, vaddr_t lin, paddr_t phy){
 	pml4t_t pml4 = p->vm->pml4t;
 	off_t pml4o = (lin>>39)&0x1ff;	// bit 39-47
 	pdpt_t pdpt = malloc_page4k_attr(1, PGATTR_NOEXEC);
+	memset(pdpt, 0, PAGE_SIZE);
 	set_pml4e(pml4 + pml4o, kernel_v2p(pdpt), PGATTR_USER);
 	off_t pdpto = (lin>>30)&0x1ff;	// bit 30-38
 	pd_t pd = malloc_page4k_attr(1, PGATTR_NOEXEC);
+	memset(pd, 0, PAGE_SIZE);
 	set_pdpte(pdpt + pdpto, kernel_v2p(pd), PGATTR_USER);
 	off_t pdo = (lin>>21)&0x1ff;	// bit 21-29
 	pt_t pt = malloc_page4k_attr(1, PGATTR_NOEXEC);
+	memset(pt, 0, PAGE_SIZE);
 	set_pde(pd + pdo, kernel_v2p(pt), PGATTR_USER);
 	off_t pto = (lin>>12)&0x1ff;	// bit 12-20
 	set_pte(pt + pto, phy, PGATTR_NOEXEC);
@@ -195,18 +200,20 @@ void alloc_stack(Process* t, u16 rsv, u16 commit, vaddr_t top, vaddr_t entry){
 }
 
 Bool scan_del_pgtab(vaddr_t base, vaddr_t stack){
-	vaddr_t top = base + PAGE_SIZE;
-	Bool res = True, del = True;
+	vaddr_t top = base + (base == SELF_REF4_ADDR ? PAGE_SIZE/2 : PAGE_SIZE);
+	Bool res = False, deep = ((base >> 21ull) & 0x7ffffff) == 0x7fbfdfe;
 	for(vaddr_t scan = base; scan < top; scan += 8){
+		Bool ms = False;
 		u64 pte = *(u64*)scan;
 		if(pte & 1){
-			if((base >> 30) & 0x7ffffff == 0x7fbfdfe){
+			if(deep){
 				vaddr_t next = (scan << 9) | CANONICAL_SIGN;
-				del = scan_del_pgtab(next, stack);
+				ms = scan_del_pgtab(next, stack);
 			}
+			else ms = (pte == stack);
 			u64 phy = get_page_phy(*(pte_t*)&pte);
-			if(pte == stack) res = False;
-			elif(del) free_phy(phy, 1);
+			if(!ms) free_phy(phy, 1);
+			res = (res || ms);
 		}
 	}
 	return res;
@@ -239,11 +246,12 @@ void ProcessEntrySafe(u64 routine, Process* self){
 	}
 	if(self->vm->ref == 1){
 		Vmspace* vm = self->vm;
-		paddr_t stack;
+		vaddr_t stack;
 		for(int i = 0; i < vm->count; i++){
 			Vmarea* a = vm->areas + i;
 			if(a->type == VM_STACK){
 				if((a->flag & VM_NOCOMMIT) == 0){	// commited stack size
+					self->rsp = a->paddr;
 					self->sl = a->pages;
 				}
 				continue;
@@ -255,7 +263,7 @@ void ProcessEntrySafe(u64 routine, Process* self){
 			free_phy(a->paddr, a->pages);
 		}
 		u64 rsp = self->rsb + self->sl * PAGE_SIZE - 1;
-		scan_del_pgtab(SELF_REF4_ADDR, get_mapping_pde(rsp));
+		scan_del_pgtab(SELF_REF4_ADDR, *(u64*)get_mapping_pde(rsp));
 	}
 	free_htab(self);
 	exit_process();
@@ -302,19 +310,6 @@ Processor* choose_cpu_for(Process* t){
 }
 
 // Scheduler
-void switch_to(Processor* p,Process* now,Process* next){
-	p->cur=next;
-	p->tickleft=1;
-	next->stat=Running;
-	/*
-	__builtin_ia32_wrfsbase64(next->fsbase)
-	//__builtin_ia32_wrgsbase64(next->gsbase)
-	*/	// CPUID[0X7].EBX[0], CR4[16]
-	WriteMSR(Fsbase,next->fsbase);
-	//WriteMSR(Gsbase,next->gsbase);
-	// my lenovo ideapad doesnt support gsbase
-	switch_context(now,next);
-}
 void sched(){
 	Processor* p = GetCurrentProcessorByLapicid();
 	if(p->tickleft){
@@ -334,12 +329,16 @@ void sched(){
 			// dump_context();
 			hlt();
 		}
-		now->stat=Ready;
-		switch_to(p,now,next);
+		p->cur = next;
+		p->tickleft = 1;
+		now->stat = Ready;
+		next->stat = Running;
+		WriteMSR(Fsbase, next->fsbase);
+		switch_context(now, next);
 	}
 	else release_spin(&r->lock);
 }
-void sched_away(){
+void sched_suspend(){
 	Processor* p = GetCurrentProcessorByLapicid();
 	Process* now = p->cur;
 	ReadyList* r = &p->ready;
@@ -348,7 +347,28 @@ void sched_away(){
 	if(r->cur == r->cnt) r->cur=0;
 	if(r->cnt > 1) next = r->list[r->cur];
 	release_spin(&r->lock);
-	switch_to(p,now,next);
+	p->cur = next;
+	p->tickleft = 1;
+	now->stat = Suspend;
+	next->stat = Running;
+	WriteMSR(Fsbase, next->fsbase);
+	switch_context(now, next);
+}
+void sched_exit(){
+	Processor* p = GetCurrentProcessorByLapicid();
+	Process* now = p->cur;
+	ReadyList* r = &p->ready;
+	Process* next = p->idle;
+	acquire_spin(&r->lock);
+	if(r->cur == r->cnt) r->cur=0;
+	if(r->cnt > 1) next = r->list[r->cur];
+	release_spin(&r->lock);
+	p->cur = next;
+	p->tickleft = 1;
+	now->stat = Stopped;
+	next->stat = Running;
+	WriteMSR(Fsbase, next->fsbase);
+	switch_context_exit(now, next, &now->stat);
 }
 
 int ready_process(Process* t){
@@ -376,15 +396,13 @@ void wait_process(Process* t){
 void suspend_process(){
 	u64 rfl = SaveFlagsCli();	// raise irql to dispatch-level
 	Process* now = GetCurrentProcess();
-	now->stat = Suspend;
 	del_ready(&cpus[now->curcpu].ready, now);
-	sched_away();
+	sched_suspend();
 	LoadFlags(rfl);
 }
 void exit_process(){
 	cli();	// raise irql to dispatch-level
 	Process* now = GetCurrentProcess();
-	now->stat = Stopped;
 	del_ready(&cpus[now->curcpu].ready, now);
 	acquire_spin(&now->waiter.lock);
 	for(int i = 0; i < now->waiter.count; i++){
@@ -393,10 +411,35 @@ void exit_process(){
 	release_spin(&now->waiter.lock);
     lock_dec(now->href);
     if(now->href == 0) reap_process(now);
-	sched_away();
+	sched_exit();
 }
 void reap_process(Process* p){
-
+	Message msg;
+	msg.type = SPMSG_REAP;
+	msg.arg64 = p;
+	send_message(sysprocml, &msg);
+}
+void do_reap_process(Process* p){
+	vaddr_t slin = p->rsb;
+	pml4t_t pml4t = p->vm->pml4t;
+	off_t pml4o = extract_pml4o_macro(slin);
+	paddr_t pdptp = get_pdpt_phy(pml4t[pml4o]);
+	pdpt_t pdpt = kernel_p2v(pdptp);
+	set_mapping(pdpt, pdptp, 0);
+	off_t pdpto = extract_pdpto_macro(slin);
+	paddr_t pdp = get_pd_phy(pdpt[pdpto]);
+	pd_t pd = kernel_p2v(pdp);
+	set_mapping(pd, pdp, 0);
+	off_t pdo = extract_pdo_macro(slin);
+	paddr_t ptp = get_pt_phy(pd[pdo]);
+	free_phy(pdptp, 1);
+	free_phy(pdp, 1);
+	free_phy(ptp, 1);
+	deref_vmspace(p->vm);
+	paddr_t sphy = p->rsp;
+	u32 sl = p->sl;
+	free_phy(sphy, sl);
+	free_process(p);
 }
 
 IntHandler void sched_tick_ipistub(IntFrame* f){

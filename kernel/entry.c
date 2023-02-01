@@ -45,8 +45,6 @@ void KernelBootEntry(BootArguments* bargs){
 	mount_initfs();
 
 	puts("Kernel init done\n");
-
-	bochsdbg();
 	
 	Process* sys = create_process("System", NULL, 4, 4, 0x200000, sysproc);
 	ready_process(sys);

@@ -2,6 +2,8 @@
 #include "msglist.h"
 #include "types.h"
 #include "proc.h"
+#include "kheap.h"
+#include "asm.h"
 
 MessageList* sysprocml;
 
@@ -9,11 +11,18 @@ MessageList* sysprocml;
 void sysproc(){
     sysprocml = create_msglist();
 
-    Process* p = ExecuteFile("/files/boot/init.exe");
+    ExecuteFile("/files/boot/init.exe");
     
     while(1){
         Message msg;
         recv_message(sysprocml, &msg);
-        printk("recv %w %w %d %q\n", msg.type, msg.id, msg.arg32, msg.arg64);
+
+        switch(msg.type){
+            case SPMSG_REAP:{
+                do_reap_process((Process*)msg.arg64);
+                break;
+            }
+            default: break;
+        }
     }
 }

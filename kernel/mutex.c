@@ -36,6 +36,10 @@ PUBLIC void init_dispatcher(Dispatcher* wl, u8 type){
         init_spinlock(&wl->lock);
     }
 }
+void free_dispatcher(Dispatcher* wl){
+    if(wl->type == DISPATCH_TIMER) return;
+    kheap_free(wl->list);
+}
 PUBLIC void init_mutex(Mutex* m){
     m->owner = NULL;
     m->href = 0;

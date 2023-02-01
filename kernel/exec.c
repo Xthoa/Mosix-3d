@@ -63,6 +63,7 @@ Process* RunPe64(File *f){
 
         kheap_free(ish);
     }
+    kheap_free(inh);
 
     ready_process(p);
     return p;

@@ -33,7 +33,7 @@ void pmem_init(BootArguments* bargs){
 
 // alloc&dealloc on general Freelist
 PUBLIC u64 flist_alloc(Freelist *aloc,u32 size){
-	acquire_spin(&phyflist.lock);
+	acquire_spin(&aloc->lock);
 	u64 addr=0;
 	for(int i = 0; i < aloc->size; i++){
 		Extent* f= aloc->root + i;
@@ -50,11 +50,11 @@ PUBLIC u64 flist_alloc(Freelist *aloc,u32 size){
 			break;
 		}
 	}
-	release_spin(&phyflist.lock);
+	release_spin(&aloc->lock);
 	return addr;
 }
 PUBLIC void flist_dealloc(Freelist *aloc,u64 addr,u32 size){
-	acquire_spin(&phyflist.lock);
+	acquire_spin(&aloc->lock);
 	u32 i,len;
 	for(i = 0; i < aloc->size; i++){
 		Extent* f= aloc->root + i;
@@ -88,19 +88,23 @@ PUBLIC void flist_dealloc(Freelist *aloc,u64 addr,u32 size){
 		pull_back_array(aloc->root, aloc->size, i+1, Extent);
 		aloc->size--;
 	}
-	release_spin(&phyflist.lock);
+	release_spin(&aloc->lock);
 	return;
 }
 
-u32 total_phy_avail(){
-	acquire_spin(&phyflist.lock);
+u32 total_avail(Freelist* fl){
+	acquire_spin(&fl->lock);
 	u32 total = 0;
-	for(int i = 0; i < phyflist.size; i++){
-		Extent* e = phyflist.root + i;
+	for(int i = 0; i < fl->size; i++){
+		Extent* e = fl->root + i;
 		total += e->size;
+		printk("%B %q %q\n",i, e->pos, e->size);
 	}
-	release_spin(&phyflist.lock);
+	release_spin(&fl->lock);
 	return total;
+}
+u32 total_phy_avail(){
+	return total_avail(&phyflist);
 }
 
 // General interface on physical memory management
