@@ -33,6 +33,7 @@ void KernelBootEntry(BootArguments* bargs){
 	proc_init();
 	sched_init();
 	smp_init(bargs);
+	
 	Processor* c = GetCurrentProcessorByLapicid();
 	Process* idle = alloc_process("Idle");
 	idle->vm = refer_vmspace(&kernmap);
@@ -43,6 +44,7 @@ void KernelBootEntry(BootArguments* bargs){
 	WriteMSR(Fsbase, idle);
 
 	mount_initfs();
+	dll_init();
 
 	puts("Kernel init done\n");
 	

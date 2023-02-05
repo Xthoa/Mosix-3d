@@ -57,3 +57,5 @@ typedef u64 Qword, ULONGLONG, ulong, uint64_t, vaddr_t, paddr_t;
 
 #define KERNEL_BASE 0xffffff8000000000
 #define PAGE_SIZE 4096
+
+#define Export __declspec(dllexport)

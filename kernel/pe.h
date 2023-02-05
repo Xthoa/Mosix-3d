@@ -1,7 +1,6 @@
 #pragma once
 
 #include "types.h"
-#pragma pack(1)
 
 #define IMAGE_DOS_SIGNATURE 0x5A4D
 #define IMAGE_OS2_SIGNATURE 0x454E		// NE
@@ -307,4 +306,3 @@ typedef struct s_ImageBaseRelocation {
     DWORD   SizeOfBlock;
     WORD    TypeOffset[];
 } ImageBaseRelocation;
-#pragma pack()

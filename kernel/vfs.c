@@ -26,6 +26,7 @@ PRIVATE void add_node_child(Node* father, Node* child){
 	child->next = c;
 	if(c) c->prev = child;
 	father->child = child;
+	child->prev = NULL;
     child->sb = father->sb;
 }
 PRIVATE void del_node_child(Node* child){
@@ -137,16 +138,15 @@ Node* find_node_in(Node* r, char* name){
 			return o;	// Already in node tree
 		}
 	}
+	if(!r->nops || !r->nops->lookup) return NULL;
 	Node* d = r->nops->lookup(r, name);
-	if(d) add_node_child(r, d);	// don't add if not found
 	return d;
 }
-PUBLIC Node* path_walk(const char* name){
-	if(name[0] == '/') name = name + 1;
+PUBLIC Node* find_node_from(Node* croot, const char* name){
 	char* str = kheap_clonestr(name);
 	int slen = kstrlen(str);
 	int i,j;
-	Node* o = root;
+	Node* o = croot;
 	for(i = 0, j = 0; str[i]; i++){
 		if(str[i] == '/'){
 			str[i]=0;
@@ -159,11 +159,18 @@ PUBLIC Node* path_walk(const char* name){
 	kheap_freestr(str);
 	return o;
 }
+PUBLIC Node* path_walk(const char* name){
+	if(name[0] == '/') name = name + 1;
+	return find_node_from(root, name);
+}
 
 PUBLIC File* open(char* path, int flag){
 	Node* node = path_walk(path);
 	if(!node) return NULL;
 	if(node->attr & NODE_DIRECTORY) return NULL;
+	return open_node(node, flag);
+}
+File* open_node(Node* node, int flag){
 	File* f = kheap_alloc(sizeof(File));
 	f->node = node;
 	f->mode = flag;

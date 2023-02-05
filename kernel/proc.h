@@ -9,6 +9,7 @@
 #include "mutex.h"
 #include "handle.h"
 #include "msglist.h"
+#include "exec.h"
 
 #define MAXPROC 1984
 
@@ -41,6 +42,11 @@ typedef enum e_ProcStatus{
 
 #define SPMSG_REAP 1
 
+#define PENV_NATIVE 0
+#define PENV_PE64 1
+#define PENV_ELF64 2
+#define PENV_DRIVE_PE64 3
+
 typedef struct s_SharedVmarea{
 	paddr_t paddr;
 	uint32_t ref;
@@ -66,6 +72,7 @@ typedef struct s_Vmspace{
 	Spinlock alock;
 } Vmspace;	// work as mm_struct in linux
 
+typedef struct s_ActivePedllList ActivePedllList;
 typedef struct s_Process{
 	Dispatcher waiter;
 
@@ -90,9 +97,12 @@ typedef struct s_Process{
 
 	u16 jbesp;
 	jmp_buf* jbstack;
+
+	ActivePedllList dlls;
 	
 	volatile u16 stat;
 	u16 href;	// handle reference count
+	u8 env;
 	Spinlock rundown;
 } Process;
 

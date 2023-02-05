@@ -6,4 +6,5 @@
 
 void entry(){
     puts("Hello, init!\n");
+    testfunc();
 }

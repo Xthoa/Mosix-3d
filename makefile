@@ -17,7 +17,7 @@ build:
 	$(MAKE) boot kernel archive
 	$(DD) if=boot.bin of=mosix.img bs=512 seek=0 count=4
 	$(DD) if=kernel.elf of=mosix.img bs=512 seek=4
-	$(DD) if=archive.tar of=mosix.img bs=512 seek=76
+	$(DD) if=archive.tar of=mosix.img bs=512 seek=84
 	truncate mosix.img --size=%512
 
 .PHONY: clean

@@ -9,6 +9,7 @@
 #include "string.h"
 #include "timer.h"
 #include "bitmap.h"
+#include "exec.h"
 
 PRIVATE Bitmap* procmap;
 PUBLIC Vmspace kernmap;
@@ -199,6 +200,7 @@ void alloc_stack(Process* t, u16 rsv, u16 commit, vaddr_t top, vaddr_t entry){
 	rsp[-3] = t;
 }
 
+// entry stub: memory(code) resource
 Bool scan_del_pgtab(vaddr_t base, vaddr_t stack){
 	vaddr_t top = base + (base == SELF_REF4_ADDR ? PAGE_SIZE/2 : PAGE_SIZE);
 	Bool res = False, deep = ((base >> 21ull) & 0x7ffffff) == 0x7fbfdfe;
@@ -218,8 +220,7 @@ Bool scan_del_pgtab(vaddr_t base, vaddr_t stack){
 	}
 	return res;
 }
-// entry stub: memory(code) resource
-void ProcessEntrySafe(u64 routine, Process* self){
+void proc_entry_init(Process* self){
 	if(self->vm->ref == 1){
 		Vmspace* vm = self->vm;
 		for(int i = 0; i < vm->count; i++){
@@ -235,15 +236,9 @@ void ProcessEntrySafe(u64 routine, Process* self){
 			else set_mappings(a->vaddr, a->paddr, a->pages, pgattr);
 		}
 	}
-	int code;
-	__try{
-		int (*func)()=routine;
-		func();
-	}
-	__catch(code){
-		// printk("Caught exception %d\n",code);
-		// dump_context();
-	}
+	if(self->env == PENV_PE64) LoadPedllsByImportTable(self);
+}
+void proc_entry_exit(Process* self){
 	if(self->vm->ref == 1){
 		Vmspace* vm = self->vm;
 		vaddr_t stack;
@@ -254,18 +249,31 @@ void ProcessEntrySafe(u64 routine, Process* self){
 					self->rsp = a->paddr;
 					self->sl = a->pages;
 				}
-				continue;
 			}
-			if(a->flag & VM_SHARE){
+			elif(a->flag & VM_SHARE){
 				SharedVmarea* sa = a->sharedptr;
 				lock_dec(sa->ref);	// TODO
 			}
-			free_phy(a->paddr, a->pages);
+			else free_phy(a->paddr, a->pages);
 		}
 		u64 rsp = self->rsb + self->sl * PAGE_SIZE - 1;
 		scan_del_pgtab(SELF_REF4_ADDR, *(u64*)get_mapping_pde(rsp));
 	}
 	free_htab(self);
+	if(self->env == PENV_PE64) kheap_free(self->dlls.dlls);
+}
+void ProcessEntrySafe(u64 routine, Process* self){
+	proc_entry_init(self);
+	int code;
+	__try{
+		int (*func)()=routine;
+		func();
+	}
+	__catch(code){
+		// printk("Caught exception %d\n",code);
+		// dump_context();
+	}
+	proc_entry_exit(self);
 	exit_process();
 }
 

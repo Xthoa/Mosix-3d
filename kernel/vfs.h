@@ -106,10 +106,11 @@ void unmount_sb(Superblock* sb);
 int mount_on(char* path, char* fstype, Node* dev);
 int unmount_from(char* path);
 
+Node* find_node_from(Node* croot, const char* name);
 Node* path_walk(const char* name);
 
-typedef struct s_Process Process;
 File* open(char* path, int flag);
+File* open_node(Node* node, int flag);
 void close(File* f);
 int read(File* f, char* buf, size_t size);
 int write(File* f, char* buf, size_t size);
