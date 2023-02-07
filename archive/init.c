@@ -6,5 +6,5 @@
 
 void entry(){
     puts("Hello, init!\n");
-    testfunc();
+    LoadDriver("/files/boot/pci.drv");
 }

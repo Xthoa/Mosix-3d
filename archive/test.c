@@ -1,6 +1,6 @@
 #include "types.h"
 
-void entry(){
+void dlentry(){
     puts("Hello from test.dll\n");
 }
 Export void testfunc(){

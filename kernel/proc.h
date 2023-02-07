@@ -98,7 +98,7 @@ typedef struct s_Process{
 	u16 jbesp;
 	jmp_buf* jbstack;
 
-	ActivePedllList dlls;
+	PeInfo peinfo;
 	
 	volatile u16 stat;
 	u16 href;	// handle reference count

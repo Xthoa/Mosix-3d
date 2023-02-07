@@ -236,7 +236,10 @@ void proc_entry_init(Process* self){
 			else set_mappings(a->vaddr, a->paddr, a->pages, pgattr);
 		}
 	}
-	if(self->env == PENV_PE64) LoadPedllsByImportTable(self);
+	if(self->env == PENV_PE64 || self->env == PENV_DRIVE_PE64){
+		LoadPedllsForProcess(self);
+		ePeFixRelocation(self);
+	}
 }
 void proc_entry_exit(Process* self){
 	if(self->vm->ref == 1){
@@ -260,7 +263,9 @@ void proc_entry_exit(Process* self){
 		scan_del_pgtab(SELF_REF4_ADDR, *(u64*)get_mapping_pde(rsp));
 	}
 	free_htab(self);
-	if(self->env == PENV_PE64) kheap_free(self->dlls.dlls);
+	if(self->env == PENV_PE64 || self->env == PENV_DRIVE_PE64){
+		kheap_free(self->peinfo.dlls);
+	}
 }
 void ProcessEntrySafe(u64 routine, Process* self){
 	proc_entry_init(self);
