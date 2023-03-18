@@ -58,6 +58,7 @@ PUBLIC void flist_dealloc(Freelist *aloc,u64 addr,u32 size){
 	u32 i,len;
 	for(i = 0; i < aloc->size; i++){
 		Extent* f= aloc->root + i;
+		//ASSERT_ARG(f->pos != addr, "%q %b", f->pos, f->size == size);
 		if(f->pos >= addr+size){
 			push_back_array(aloc->root, aloc->size, i, Extent);
 			f->pos = addr;

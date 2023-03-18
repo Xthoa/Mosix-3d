@@ -19,3 +19,7 @@ u32 total_kheap_avail();
 
 #define kalloc kheap_alloc
 #define kfree kheap_free
+
+#include "pmem.h"
+
+extern Freelist kheapflist;

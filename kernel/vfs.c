@@ -187,12 +187,12 @@ PUBLIC void close(File* f){
 }
 PUBLIC int read(File* f, char* buf, size_t size){
 	if(f->fops && f->fops->read)
-		return f->fops->read(f, buf, size, f->off);
+		return f->fops->read(f, buf, size);
 	return -1;
 }
 PUBLIC int write(File* f, char* buf, size_t size){
 	if(f->fops && f->fops->write)
-		return f->fops->write(f, buf, size, f->off);
+		return f->fops->write(f, buf, size);
 	return -1;
 }
 PUBLIC int lseek(File* f, off_t off, int origin){

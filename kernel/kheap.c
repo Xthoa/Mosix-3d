@@ -1,12 +1,12 @@
 #include "types.h"
-#include "kheap.h"
 #include "pmem.h"
+#include "kheap.h"
 
-PRIVATE Freelist kheapflist;
+Freelist kheapflist;
 
 // Initialize kernel heap.
 void kheap_init(){
-    kheapflist.max = 128;
+    kheapflist.max = 126;
     kheapflist.size = 1;
     init_spinlock(&kheapflist.lock);
     Extent* r = kheapflist.root = KHEAP_EXTENT_ROOT;

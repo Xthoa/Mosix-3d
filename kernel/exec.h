@@ -14,6 +14,8 @@
 #define DRIVER_INIT 0
 #define DRIVER_EXIT 1
 
+#define SPMSG_CALLBACK 2
+
 typedef struct s_Pesection{
     paddr_t paddr;  // shared data if shareable; proto data if not.
     vaddr_t voff;

@@ -30,6 +30,9 @@ void putc(char c){
 		cursnow=(cursnow+80)/80*80;
 	}elif(c=='\r'){
 		cursnow=(cursnow)/80*80;
+	}elif(c=='\b'){
+		cursnow--;
+		putvram(cursnow,0,7);
 	}else{
 		putvram(cursnow,c,7);
 		cursnow++;

@@ -1,6 +1,6 @@
 default: archive
 
-arch = test.txt init.exe test.dll pci.drv
+arch = test.txt init.exe test.dll pci.drv ps2kbd.drv
 
 ckexe = make -f pe-exe-kern-c.make
 ckdll = make -f pe-dll-kern-c.make
@@ -10,6 +10,7 @@ archive:
 	$(ckdll) test.dll
 	$(ckexe) init.exe LIB=test.dll
 	$(ckdrv) pci.drv
+	$(ckdrv) ps2kbd.drv
 	tar -cf archive.tar $(arch)
 	cp archive.tar ..
 

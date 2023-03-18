@@ -47,11 +47,11 @@ void do_recv_messsage(MessageList* ml, Message* dst){
 }
 
 void send_message(MessageList* ml, Message* msg){
-    if(ml->size == ml->cap) wait_msglist(ml);
+    while(ml->size == ml->cap) wait_msglist(ml);
     do_send_message(ml, msg);
 }
 void recv_message(MessageList* ml, Message* dst){
-    if(ml->size == 0) wait_message(ml);
+    while(ml->size == 0) wait_message(ml);
     do_recv_messsage(ml, dst);
 }
 
@@ -64,4 +64,34 @@ void wait_msglist(MessageList* ml){
 }
 void wait_message(MessageList* ml){
     suspend_process();
+}
+
+int read_buffer(FifoBuffer* b){
+    if(b->read == b->write) return -1;
+    int data = b->buf[b->read];
+    b->read ++;
+    if(b->read == b->cap) b->read = 0;
+    return data;
+}
+int write_buffer(FifoBuffer* b, int data){
+    if(b->write == b->read - 1 || b->write == (b->read + b->cap) - 1) return -1;
+    b->buf[b->write] = data;
+    b->write ++;
+    if(b->write == b->cap) b->write = 0;
+    return data;
+}
+
+int read_buffer32(FifoBuffer* b){
+    if(b->read == b->write) return -1;
+    int data = ((u32*)b->buf)[b->read];
+    b->read ++;
+    if(b->read == b->cap) b->read = 0;
+    return data;
+}
+int write_buffer32(FifoBuffer* b, int data){
+    if(b->write == b->read - 1 || b->write == (b->read + b->cap) - 1) return -1;
+    ((u32*)b->buf)[b->write] = data;
+    b->write ++;
+    if(b->write == b->cap) b->write = 0;
+    return data;
 }

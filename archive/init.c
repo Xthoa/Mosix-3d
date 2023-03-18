@@ -7,4 +7,5 @@
 void entry(){
     puts("Hello, init!\n");
     LoadDriver("/files/boot/pci.drv");
+    LoadDriver("/files/boot/ps2kbd.drv");
 }

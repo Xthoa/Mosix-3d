@@ -61,8 +61,8 @@ typedef struct s_File{
 typedef struct s_FileOperations{
     int (*open)(Node* inode, File* file);
     int (*close)(Node* inode, File* file);
-    int (*read)(File* file, char* buf, size_t size, u64* pos);
-    int (*write)(File* file, char* buf, size_t size, u64* pos);
+    int (*read)(File* file, char* buf, size_t size);
+    int (*write)(File* file, char* buf, size_t size);
     int (*lseek)(File* file, u64 offset, u64 origin);
     int (*ioctl)(Node* inode, File* file, int cmd, int arg);
 } FileOperations;

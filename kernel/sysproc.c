@@ -22,6 +22,11 @@ void sysproc(){
                 do_reap_process((Process*)msg.arg64);
                 break;
             }
+            case SPMSG_CALLBACK:{
+                int (*callback)(int) = msg.arg64;
+                callback(msg.arg32);
+                break;
+            }
             default: break;
         }
     }

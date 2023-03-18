@@ -62,5 +62,5 @@ void entry(int status){
     if(status == DRIVER_EXIT) return;
     pdevroot = NULL;
     init_spinlock(&pdevllock);
-    probe_devices();
+    //probe_devices();
 }

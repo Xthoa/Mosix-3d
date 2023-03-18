@@ -56,3 +56,4 @@ typedef struct s_IntFrame{
 	u64 ss;
 } IntFrame;
 
+void set_gatedesc(u32 no,vaddr_t off,u16 sel,u8 ist,u8 dpl,enum e_GateType type);

@@ -4,6 +4,7 @@
 #include "smp.h"
 #include "proc.h"
 #include "vmem.h"
+#include "kheap.h"
 
 // set a gate in the specified base as a gate table
 void set_gatedesc_base(Gate* base,u8 no,
@@ -56,7 +57,6 @@ void dump_segment(int sel){
 	if(g->pagesized)limit<<=12;
 	printk("  base %d limit %d\n",base,limit);
 }
-/*
 void dump_mem(u64 lin,u16 size){
 	printk("Memory dump: %w bytes from %q\n",size,lin);
 	u8 lc=size/16;
@@ -77,7 +77,17 @@ void dump_mem(u64 lin,u16 size){
 		}
 	}
 	putc('\n');
-}*/
+}
+void dump_stack(u64 lin,u16 size){
+	printk("Stack dump: %w quads from %q\n",size,lin);
+	u64* ptr=lin;
+	for(u64 off = 0; off < size; off += 2){
+		printk("  +0x%w:",off);
+		printk(" %q",ptr[off]);
+		printk(" %q\n",ptr[off+1]);
+	}
+	putc('\n');
+}
 void dump_context(){
 	Processor* p = GetCurrentProcessorByLapicid();
 	if(p == NULL){
@@ -99,6 +109,7 @@ IntHandler void interr0d(IntFrame* f,u64 code){
 		dump_segment(code);
 	}
 	dump_context();
+	//dump_stack(f->rsp, 12);
 	bochsdbg();
 	//wait_reset();
 	hlt();
