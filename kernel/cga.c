@@ -82,6 +82,41 @@ void putu32d(u32 val){
 void putu64d(u64 val){
 	putu64(hex2bcd64(val));
 }
+void printkf(void (*putcf)(char ch), void (*putsf)(char* s), char* fmt, va_list p){
+	for(char c;c=*fmt;fmt++){
+		if(c!='%'){
+			putcf(c);
+			continue;
+		}
+		c=*(++fmt);
+		char tmpstr[16]={0};
+		if(c=='b')*(u16*)tmpstr = hex2str8(va_arg(p,u32));
+		elif(c=='w')*(u32*)tmpstr = hex2str16(va_arg(p,u32));
+		elif(c=='d')*(u64*)tmpstr = hex2str32(va_arg(p,u32));
+		elif(c=='q')*(u128*)tmpstr = hex2str64(va_arg(p,u64));
+		elif(c=='B')*(u16*)tmpstr = hex2str8(hex2bcd(va_arg(p,u32)));
+		elif(c=='W')*(u32*)tmpstr = hex2str16(hex2bcd(va_arg(p,u32)));
+		elif(c=='D')*(u64*)tmpstr = hex2str32(hex2bcd(va_arg(p,u32)));
+		elif(c=='Q')*(u128*)tmpstr = hex2str64(hex2bcd64(va_arg(p,u64)));
+		elif(c=='p'){
+			tmpstr[0] = '0';
+			tmpstr[1] = 'x';
+			*(u128*)(tmpstr + 2) = hex2str64(hex2bcd64(va_arg(p,u64)));
+		}
+		else{
+			if(c=='c')putcf(va_arg(p,int));
+			elif(c=='s')putsf(va_arg(p,char*));
+			elif(c=='%')putcf('%');
+			elif(!c)break;
+			else{
+				putcf('%');
+				putcf(c);
+			}
+			continue;
+		}
+		putsf(tmpstr);
+	}
+}
 void printk(char* fmt,...){
 	va_list p;
 	va_start(p,fmt);
@@ -112,5 +147,17 @@ void printk(char* fmt,...){
 			putc(c);
 		}
 	}
+	va_end(p);
+}
+void bochsputcf(char c){
+	bochsputc(c);
+}
+void bochsputsf(char* s){
+	bochsputs(s, strlen(s));
+}
+void bochsprintk(char* fmt, ...){
+	va_list p;
+	va_start(p, fmt);
+	printkf(bochsputcf, bochsputsf, fmt, p);
 	va_end(p);
 }

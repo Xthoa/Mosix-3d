@@ -33,6 +33,7 @@ void pmem_init(BootArguments* bargs){
 
 // alloc&dealloc on general Freelist
 PUBLIC u64 flist_alloc(Freelist *aloc,u32 size){
+	ASSERT_ARG(size != 0, "aloc=%p", aloc);
 	acquire_spin(&aloc->lock);
 	u64 addr=0;
 	for(int i = 0; i < aloc->size; i++){
@@ -54,11 +55,12 @@ PUBLIC u64 flist_alloc(Freelist *aloc,u32 size){
 	return addr;
 }
 PUBLIC void flist_dealloc(Freelist *aloc,u64 addr,u32 size){
+	ASSERT_ARG(size != 0, "aloc=%p", aloc);
 	acquire_spin(&aloc->lock);
 	u32 i,len;
 	for(i = 0; i < aloc->size; i++){
 		Extent* f= aloc->root + i;
-		//ASSERT_ARG(f->pos != addr, "%q %b", f->pos, f->size == size);
+		ASSERT_ARG(f->pos != addr, "pos=%q samesize=%b", f->pos, f->size == size);
 		if(f->pos >= addr+size){
 			push_back_array(aloc->root, aloc->size, i, Extent);
 			f->pos = addr;

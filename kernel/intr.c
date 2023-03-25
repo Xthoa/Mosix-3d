@@ -150,10 +150,22 @@ IntHandler void interr0e(IntFrame* f,u64 code){
 	printk("%s of %s page in %s mode\n",
 		code&2?"Write":"Read",code&1?"protected":"non-present",code&4?"user":"kernel");
 	dump_context();
-	printk("PDPTE: %q\n", *(u64*)get_mapping_pdpte(cr2));
-	printk("PDE:   %q\n", *(u64*)get_mapping_pde(cr2));
-	printk("PTE:   %q\n", *(u64*)get_mapping_pte(cr2));
+	u64* p = (u64*)get_mapping_pdpte(cr2);
+	printk("PDPTE: %q\n", *p);
+	if((*p&1) == 0) goto end;
+	p = (u64*)get_mapping_pde(cr2);
+	printk("PDE:   %q\n", *p);
+	if((*p&1) == 0) goto end;
+	p = (u64*)get_mapping_pte(cr2);
+	printk("PTE:   %q\n", *p);
+	end:
 	bochsdbg();
+
+	dump_mem(0xffffff840000d000, 0x30);
+	dump_mem(0xffffff8400008000, 0x10);
+	dump_mem(0xffffff8400009000, 0x10);
+	dump_mem(0xffffff840000b000, 0x10);
+	dump_mem(0xffffff840000c000, 0x10);
 	//wait_reset();
 	hlt();
 }
@@ -201,5 +213,5 @@ void fault_intr_init(){
 	set_gatedesc(0x0b, interr0b, 8, 0, 3, Interrupt);
 	set_gatedesc(0x0c, interr0c, 8, 0, 3, Interrupt);
 	set_gatedesc(0x0d,(u64)interr0d,8,0,3,Interrupt);
-	set_gatedesc(0x0e,(u64)interr0e,8,0,3,Interrupt);
+	set_gatedesc(0x0e,(u64)interr0e,8,1,3,Interrupt);
 }

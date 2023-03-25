@@ -25,6 +25,19 @@ PUBLIC void release_mutex(Mutex* m){
     }
     release_spin(&m->waiter.lock);
 }
+PUBLIC void release_mutex_wakeall(Mutex* m){
+    m->owner = NULL;
+    m->owned = 1;
+    vasm("pause");
+    acquire_spin(&m->waiter.lock);
+    for(int i = 0; i < m->waiter.count; i++){
+        Process* target = m->waiter.list[i];
+        pull_back_array(m->waiter.list, m->waiter.count, 0, Process*);
+        ready_process(target);
+    }
+    m->waiter.count = 0;
+    release_spin(&m->waiter.lock);
+}
 PUBLIC void init_dispatcher(Dispatcher* wl, u8 type){
     wl->type = type;
     if(type == DISPATCH_TIMER){
@@ -47,18 +60,18 @@ PUBLIC void init_mutex(Mutex* m){
     m->owned = 1;
 }
 
-void wait_dispatcher(Dispatcher* d){
-    Process* p = GetCurrentProcess();
-    p->waitcnt = 1;
-    p->waitings = (Dispatcher**)d;
-    if(d->type == DISPATCH_MUTEX) acquire_mutex((Mutex*) d);
-    elif(d->type == DISPATCH_PROCESS) wait_process((Process*) d);
-    elif(d->type == DISPATCH_MSGLIST) wait_message((void*)d);
-    p->waitcnt = 0;
-    p->waitings = NULL;
+void wait_signal(Signal* m){
+    while(m->state != 1){
+        acquire_spin(&m->waiter.lock);
+        u32 tmp = m->waiter.count++;
+        m->waiter.list[tmp] = GetCurrentProcess();
+        release_spin(&m->waiter.lock);
+        suspend_process();
+    }
 }
-void wait_multiple_dispatcher(Dispatcher** list, u32 count){
-    Process* p = GetCurrentProcess();
-    /*p->waitcnt = count;
-    p->waitings = list;*/
+void set_signal(Signal* m){
+    release_mutex_wakeall(m);
+}
+void clear_signal(Signal* m){
+    m->state = 0;
 }

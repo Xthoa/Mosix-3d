@@ -12,6 +12,9 @@
 #define invlpg(addr) vasm("invlpg (%0)"::"r"(addr):"memory")
 #define AsmRebootSystem() outb(0x64,0xfe)
 
+#define bochsputc(c) outb(0xe9, c)
+#define bochsputs(s, len) outsb(0xe9, s, len)
+
 #define lock_inc(x) asm("lock; incl %0":"+m"(x));
 #define lock_dec(x) asm("lock; decl %0":"+m"(x));
 

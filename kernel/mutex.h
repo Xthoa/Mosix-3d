@@ -26,14 +26,20 @@ typedef struct s_Dispatcher{
 typedef struct s_Mutex{
     Dispatcher waiter;
     Process* owner;
-    volatile uint8_t owned; // 20
+    union{
+        volatile uint8_t owned; // 20
+        volatile uint8_t state;
+    };
     u8 href;    // handle reference count
-} Mutex;
-
+} Mutex, Signal;
 
 void acquire_mutex(Mutex* m);
 void release_mutex(Mutex* m);
 void init_mutex(Mutex* m);
+
+void wait_signal(Signal* s);
+void set_signal(Signal* s);
+void clear_signal(Signal* s);
 
 void init_dispatcher(Dispatcher* wl, u8 type);
 void free_dispatcher(Dispatcher* wl);

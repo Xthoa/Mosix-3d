@@ -16,6 +16,15 @@ switch_context:  ;void switch_context(* now, * next);
     mov rbx,cr3
     cmp rbx,rax
     jz .1
+    mov rbx, 0x1000
+    cmp rbx, rax
+    jz .doit
+    mov rbx, rax
+    shr rbx, 22
+    test rbx, rbx
+    jz .doit
+    xchg bx,bx
+    .doit:
     mov cr3,rax  ; avoid flushing TLB
     .1:
     pop r15

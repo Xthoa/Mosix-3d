@@ -108,11 +108,10 @@ u8 getkbdchar(){
 FifoBuffer ascp;
 
 void commit_char(u32 cont){
-    write_buffer32(&ascp, cont);
-    putc(cont);
+    wait_write_buffer32(&ascp, cont);
 }
 
-void kbdworkitem(){
+void dkbd_decode(){
     u8 code = getkbdchar();
     if(code == 0) return;
     if(code < 0x80){
@@ -156,26 +155,33 @@ void kbdworkitem(){
     }
 }
 
+Process* dkbd;
+
 Export IntHandler void irq1(IntFrame* f){
 	u8 x = inb(0x60);
 	WriteEoi();
 	write_buffer(&kbdp, x);
-    Message m;
-    m.arg64 = kbdworkitem;
-    m.type = SPMSG_CALLBACK;
-    send_message(sysprocml, &m);
+    ready_process(dkbd);
 }
 
 int kbd_read(File* file, int* buf, size_t sz){
     for(int i = 0; i < sz; i++){
-        int n = read_buffer32(&ascp);
-        if(n == -1) return i;
+        int n = wait_read_buffer32(&ascp);
         buf[i] = n;
     }
     return sz;
 }
 int kbd_write(File* f, int* buf, size_t sz){
     return -1;
+}
+
+void dkbd_entry(){
+    while(True){
+        suspend_process();
+        while(kbdp.read != kbdp.write){
+            dkbd_decode();
+        }
+    }
 }
 
 void entry(int status){
@@ -188,10 +194,9 @@ void entry(int status){
 	scrlk = False;
 	setled();
 
-	kbdp.cap = 64;
-    kbdp.buf = kheap_alloc(256);
-    ascp.cap = 1024;
-    ascp.buf = malloc_page4k_attr(1, PGATTR_NOEXEC);
+    init_buffer(&kbdp, 1, 128, False, False);
+    init_buffer(&ascp, 4, 1024, True, True);
+    clear_signal(ascp.readers);
 
     FileOperations* kbdfops = kheap_alloc_zero(sizeof(FileOperations));
     kbdfops->read = kbd_read;
@@ -201,6 +206,9 @@ void entry(int status){
     n = create_subnode(n, "dev", 0);
     n = create_subnode(n, "kbd", 0);
     n->fops = kbdfops;
+
+    dkbd = create_process("dkbd-decode", NULL, 4, 4, DEFAULT_STACKTOP, dkbd_entry);
+    ready_process(dkbd);
 
     IntrRedirect rte = {
 		.vector = 0x21,

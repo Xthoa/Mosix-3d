@@ -23,3 +23,7 @@ void putu8(u8 v);
 void putu64(u64 l);
 void putu8d(u8 v);
 void putu64d(u64 l);
+
+void bochsputcf(char c);
+void bochsputsf(char* s);
+void bochsprintk(char* fmt, ...);

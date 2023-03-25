@@ -161,6 +161,7 @@ void prepare_tss(Processor* p){
 	u32 dof = 10 + p->index * 2;
 	u64 base = GDT + dof * sizeof(Segment);
 	u64 addr = &p->tss;
+	p->tss.ist1 = KERNEL_BASE + 0x44000 + p->index * 0x400;
 	Segment *d = base;
 	Gate* g = base;
 	d->limit=sizeof(Tss64)-1;

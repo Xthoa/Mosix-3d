@@ -385,6 +385,7 @@ void sched_exit(){
 }
 
 int ready_process(Process* t){
+	if(t->stat == Running || t->stat == Ready) return -1;
 	Processor* p=cpus;
 	p = choose_cpu_for(t);
 	ReadyList* r = &p->ready;
