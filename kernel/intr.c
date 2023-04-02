@@ -160,12 +160,6 @@ IntHandler void interr0e(IntFrame* f,u64 code){
 	printk("PTE:   %q\n", *p);
 	end:
 	bochsdbg();
-
-	dump_mem(0xffffff840000d000, 0x30);
-	dump_mem(0xffffff8400008000, 0x10);
-	dump_mem(0xffffff8400009000, 0x10);
-	dump_mem(0xffffff840000b000, 0x10);
-	dump_mem(0xffffff840000c000, 0x10);
 	//wait_reset();
 	hlt();
 }

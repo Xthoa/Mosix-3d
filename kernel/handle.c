@@ -46,6 +46,7 @@ void htab_delete(HandleTable* htab, int no){
 // TODO: parameter check
 int hop_openfile(char* path, int flag){
     File* f = open(path, flag);
+    if(!f) __throw(2);
     lock_inc(f->href);
     return htab_insert(get_cur_htab(), f, HANDLE_FILE);
 }

@@ -33,6 +33,8 @@ void putc(char c){
 	}elif(c=='\b'){
 		cursnow--;
 		putvram(cursnow,0,7);
+	}elif(c=='\t'){
+		cursnow=cursnow/4*4+4;
 	}else{
 		putvram(cursnow,c,7);
 		cursnow++;
