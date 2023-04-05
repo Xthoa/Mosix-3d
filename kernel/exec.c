@@ -93,14 +93,12 @@ Process* RunPe64(File *f){
 
         kheap_free(ish);
     }
-
-    ready_process(p);
     return p;
 }
 Process* RunElf64(File* f){
     return NULL;
 }
-Process* ExecuteFile(char* path){
+Process* ExecuteFileSuspend(char* path){
     File* f = open(path, 0);
     if(f == NULL) return NULL;
     char cont[4];
@@ -110,6 +108,11 @@ Process* ExecuteFile(char* path){
     if(*(short*)cont == *(short*)"MZ") p = RunPe64(f);
     if(*(int*)cont == *(int*)"\177ELF") p = RunElf64(f);
     close(f);
+    return p;
+}
+Process* ExecuteFile(char* path){
+    Process* p = ExecuteFileSuspend(path);
+    ready_process(p);
     return p;
 }
 

@@ -34,6 +34,7 @@ void init_buffer(FifoBuffer* b, u16 objsz, u16 count, Bool rsig, Bool wsig){
     if(rsig){
         b->readers = kheap_alloc(sizeof(Signal));
         init_mutex(b->readers);
+        clear_signal(b->readers);
     }
     else b->readers = NULL;
     if(wsig){

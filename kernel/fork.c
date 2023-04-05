@@ -1,12 +1,25 @@
 #include "proc.h"
+#include "exec.h"
+#include "handle.h"
 
-// Due to 'fork' is extra complicated:
-// we implement fork in an independent file.
+Process* exec_setstdfp(char* name, File* stdfp){
+    Process* old = GetCurrentProcess();
+    Process* new = ExecuteFileSuspend(name);
+    htab_assign(&new->htab, 0, stdfp, HANDLE_FILE);
+    htab_assign(&new->htab, 1, stdfp, HANDLE_FILE);
+    htab_assign(&new->htab, 2, stdfp, HANDLE_FILE);
+    ready_process(new);
+    return new;
+}
+Process* exec_dupall(char* name){
+    Process* old = GetCurrentProcess();
+    Process* new = ExecuteFileSuspend(name);
+    htab_copy(&new->htab, &old->htab);
+    ready_process(new);
+    return new;
+}
 
-// Fork also has sth to do with the image-segments
-// so there's lots of flags to control its action
-
-PUBLIC int fork_process(){
+Process* fork_process(){
     Process* old = GetCurrentProcess();
     //Process* new = create_process(old->name, );
 

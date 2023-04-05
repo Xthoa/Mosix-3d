@@ -42,6 +42,10 @@ PUBLIC Node* create_subnode(Node* father, const char* name, u32 flag){
 		child->fops = child->sb->fops;
 		child->nops = child->sb->nops;
     }
+	else{
+		child->fops = father->fops;
+		child->nops = father->nops;
+	}
 	return child;
 }
 PUBLIC void destroy_subnode(Node* child){

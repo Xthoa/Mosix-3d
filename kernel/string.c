@@ -121,6 +121,17 @@ u64 hex2str32(u32 i){
 u128 hex2str64(u64 i){
 	return (u128)hex2str32(i>>32)+((u128)hex2str32(i)<<64);
 }
+void hex2str(u64 i, char* dst){
+	if(i == 0){
+		dst[0] = '0';
+		dst[1] = 0;
+		return;
+	}
+	int d = -1;
+	for(u64 x = i; x; x >>= 4) d++;
+	for(u64 x = i; d >= 0; x >>= 4) dst[d--] = hexdig(x & 0xf);
+	dst[d] = 0;
+}
 
 u64 min(u64 a,u64 b){
 	return a<b?a:b;

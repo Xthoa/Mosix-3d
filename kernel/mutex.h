@@ -40,6 +40,7 @@ void init_mutex(Mutex* m);
 void wait_signal(Signal* s);
 void set_signal(Signal* s);
 void clear_signal(Signal* s);
+int wait_signals(Signal** list, size_t count);
 
 void init_dispatcher(Dispatcher* wl, u8 type);
 void free_dispatcher(Dispatcher* wl);

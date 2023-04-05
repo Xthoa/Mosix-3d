@@ -56,5 +56,9 @@ typedef struct s_PeInfo{
 typedef struct s_Process Process;
 
 Process* ExecuteFile(char* path);
+Process* ExecuteFileSuspend(char* path);
 Pedll* LoadDriver(char* name);
 void UnloadDriver(Pedll* dll);
+
+Process* exec_setstdfp(char* name, File* stdfp);
+Process* exec_dupall(char* name);

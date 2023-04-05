@@ -77,8 +77,8 @@ mov sp,0x7c00
 mov [driveno], dl
 
 KernelSectors equ 88
-ArchiveSectors equ 60
-ArchivePosition equ 92
+ArchiveSectors equ 80
+ArchivePosition equ 96
 
 mov cx,0x7e0
 mov di,1

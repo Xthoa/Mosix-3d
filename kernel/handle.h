@@ -4,7 +4,7 @@
 #include "spin.h"
 #include "bitmap.h"
 
-#define MAX_HANDLE 512
+#define MAX_HANDLE 256
 
 #define HANDLE_PROCESS 1
 #define HANDLE_FILE 2
@@ -19,7 +19,6 @@ typedef struct s_Handle{
 } Handle;
 typedef struct s_HandleTable{
     Handle* table;
-    Bitmap* free;
     Spinlock lock;
     u32 :24;
 } HandleTable;
@@ -29,8 +28,12 @@ void alloc_htab(Process* p);
 void free_htab(Process* p);
 
 int htab_insert(HandleTable* htab, void* obj, u32 type);
+void htab_assign(HandleTable* htab, int no, void* ptr, u32 type);
+void htab_copy(HandleTable* dst, HandleTable* src);
 void htab_delete(HandleTable* htab, int no);
 
+void* handle_query(int no);
+void handle_dup(int old, int new);
 int hop_openfile(char* path, int flag);
 int hop_readfile(int no, char* dst, uint64_t sz);
 int hop_writefile(int no, char* src, uint64_t sz);

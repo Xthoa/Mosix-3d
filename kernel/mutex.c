@@ -75,3 +75,24 @@ void set_signal(Signal* m){
 void clear_signal(Signal* m){
     m->state = 0;
 }
+
+int wait_signals(Signal** list, size_t count){
+    Process* self = GetCurrentProcess();
+    while(True){
+        for(int i = 0; i < count; i++){
+            Signal* s = list[i];
+            if(!s) return -1;
+            if(s->state == 1) return i;
+            acquire_spin(&s->waiter.lock);
+            for(int j = 0; j < s->waiter.count; j++){
+                Process* p = s->waiter.list[j];
+                if(p == self) goto exist;
+            }
+            u32 tmp = s->waiter.count++;
+            s->waiter.list[tmp] = self;
+            exist:
+            release_spin(&s->waiter.lock);
+        }
+        suspend_process();
+    }
+}

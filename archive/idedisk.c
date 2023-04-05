@@ -141,7 +141,7 @@ int ide_write(File* file, char* buf, size_t size){
     return size;
 }
 
-void entry(int status){
+Export void entry(int status){
     if(status == DRIVER_EXIT) return;
 
     u8 st = inb(0x1f7);

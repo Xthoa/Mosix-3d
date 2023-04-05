@@ -164,6 +164,10 @@ Export IntHandler void irq1(IntFrame* f){
     ready_process(dkbd);
 }
 
+int kbd_open(Node* node, File* file){
+    file->data = &ascp;
+    return 0;
+}
 int kbd_read(File* file, int* buf, size_t sz){
     for(int i = 0; i < sz; i++){
         int n = wait_read_buffer32(&ascp);
@@ -196,9 +200,9 @@ void entry(int status){
 
     init_buffer(&kbdp, 1, 128, False, False);
     init_buffer(&ascp, 4, 1024, True, True);
-    clear_signal(ascp.readers);
 
     FileOperations* kbdfops = kheap_alloc_zero(sizeof(FileOperations));
+    kbdfops->open = kbd_open;
     kbdfops->read = kbd_read;
     kbdfops->write = kbd_write;
 

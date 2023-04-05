@@ -10,12 +10,11 @@
 
 void alloc_htab(Process* p){
     p->htab.table = malloc_page4k_attr(1, PGATTR_NOEXEC);
-    p->htab.free = create_bitmap(MAX_HANDLE);
+    memset(p->htab.table, 0, PAGE_SIZE);
     init_spinlock(&p->htab.lock);
 }
 void free_htab(Process* p){
     free_page4k(p->htab.table, 1);
-    destroy_bitmap(p->htab.free);
 }
 HandleTable* get_cur_htab(){
     Process* p = GetCurrentProcess();
@@ -27,20 +26,47 @@ Handle* get_handle(int no){
 
 int htab_insert(HandleTable* htab, void* obj, u32 type){
     acquire_spin(&htab->lock);
-    int no = alloc_bit(htab->free);
-    Handle* h = htab->table + no;
-    h->ptr = obj;
-    h->type = type;
-    h->flag = 0;
+    for(int i = 0; i < MAX_HANDLE; i++){
+        Handle* h = htab->table + i;
+        if(htab->table[i].ptr == 0){
+            h->ptr = obj;
+            h->type = type;
+            h->flag = 0;
+            release_spin(&htab->lock);
+            return i;
+        }
+    }
     release_spin(&htab->lock);
-    return no;
+    return -1;
+}
+void htab_copy(HandleTable* dst, HandleTable* src){
+    acquire_spin(&dst->lock);
+    acquire_spin(&src->lock);
+    memcpy(dst->table, src->table, PAGE_SIZE);
+    release_spin(&src->lock);
+    release_spin(&dst->lock);
 }
 void htab_delete(HandleTable* htab, int no){
     acquire_spin(&htab->lock);
     Handle* h = htab->table + no;
     h->ptr = 0;
-    free_bit(htab->free, no);
     release_spin(&htab->lock);
+}
+void htab_assign(HandleTable* htab, int no, void* ptr, u32 type){
+    Handle* h = htab->table + no;
+    acquire_spin(&htab->lock);
+    h->ptr = ptr;
+    h->type = type;
+    h->flag = 0;
+    release_spin(&htab->lock);
+}
+
+void* handle_query(int no){
+    return get_cur_htab()->table[no].ptr;
+}
+void handle_dup(int old, int new){
+    HandleTable* htab = get_cur_htab();
+    htab_assign(htab, new, htab->table[old].ptr, htab->table[old].type);
 }
 
 // TODO: parameter check

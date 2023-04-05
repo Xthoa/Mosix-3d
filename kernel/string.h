@@ -16,6 +16,7 @@ u16 hex2str8(u8 i);
 u32 hex2str16(u16 i);
 u64 hex2str32(u32 i);
 u128 hex2str64(u64 i);
+void hex2str(u64 i, char* dst);
 
 u64 min(u64 a,u64 b);
 u64 max(u64 a,u64 b);

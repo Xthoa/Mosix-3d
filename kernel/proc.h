@@ -133,7 +133,6 @@ void suspend_process();
 void exit_process();
 void reap_process(Process* p);
 void do_reap_process(Process* p);
-int fork_process();
 
 Process* GetCurrentProcess();
 u16 GetCurrentProcessID();
