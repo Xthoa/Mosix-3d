@@ -6,6 +6,7 @@
 #include "kheap.h"
 #include "asm.h"
 #include "macros.h"
+#include "proc.h"
 
 void entry(){
     File* ptmx = open("/run/dev/ptmx", 0);
@@ -20,11 +21,10 @@ void entry(){
     Signal** list = kheap_alloc(sizeof(Signal*) * 3);
     list[0] = pty->out.readers;
     list[1] = ((FifoBuffer*) kbdf->data)->readers;
-    list[2] = sh0;
+    list[2] = sh0->deathsig;
     
     while(True){
         int res = wait_signals(list, 3);
-        bochsputc(res + '0');
         switch(res){
             case 0: {
                 while(!buffer_empty(&pty->out)){
@@ -42,6 +42,7 @@ void entry(){
             }
             case 2: {
                 sh0 = exec_setstdfp("/files/boot/sh0.exe", pts);
+                list[2] = sh0->deathsig;
                 break;
             }
             default: break;

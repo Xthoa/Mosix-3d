@@ -54,16 +54,15 @@ Process* alloc_process(char* name){
 	p->jbesp = 0;
 	p->lovedcpu=p->curcpu = 0;
 	p->jbstack = kheap_alloc(sizeof(jmp_buf) * 32);
-	init_dispatcher(&p->waiter, DISPATCH_PROCESS);
-	p->waitcnt = 0;
-	p->waitings = NULL;
+	p->deathsig = create_mutex(p->deathsig);
+	clear_signal(p->deathsig);
 	p->href = 1;
 	init_spinlock(&p->rundown);
 	return p;
 }
 void free_process(Process* p){
 	kheap_free(p->jbstack);
-	free_dispatcher(p);
+	destroy_mutex(p->deathsig);
 	pidmap[p->pid] = NULL;
 	free_bit(procmap, p->pid);
 	kheap_freestr(p->name);
@@ -236,9 +235,8 @@ void proc_entry_init(Process* self){
 			else set_mappings(a->vaddr, a->paddr, a->pages, pgattr);
 		}
 	}
-	if(self->env == PENV_PE64 || self->env == PENV_DRIVE_PE64){
+	if(self->env == PENV_PE64){
 		LoadPedllsForProcess(self);
-		ePeFixRelocation(self);
 	}
 }
 void proc_entry_exit(Process* self){
@@ -247,11 +245,11 @@ void proc_entry_exit(Process* self){
 		vaddr_t stack;
 		for(int i = 0; i < vm->count; i++){
 			Vmarea* a = vm->areas + i;
+			if(a->flag & VM_NOCOMMIT) continue;
 			if(a->type == VM_STACK){
-				if((a->flag & VM_NOCOMMIT) == 0){	// commited stack size
-					self->rsp = a->paddr;
-					self->sl = a->pages;
-				}
+				// commited stack
+				self->rsp = a->paddr;
+				self->sl = a->pages;
 			}
 			elif(a->flag & VM_SHARE){
 				SharedVmarea* sa = a->sharedptr;
@@ -278,6 +276,7 @@ void ProcessEntrySafe(u64 routine, Process* self){
 		// printk("Caught exception %d\n",code);
 		// dump_context();
 	}
+	cli();
 	proc_entry_exit(self);
 	exit_process();
 }
@@ -378,7 +377,6 @@ void sched_exit(){
 	release_spin(&r->lock);
 	p->cur = next;
 	p->tickleft = 1;
-	now->stat = Stopped;
 	next->stat = Running;
 	WriteMSR(Fsbase, next->fsbase);
 	switch_context_exit(now, next, &now->stat);
@@ -399,13 +397,7 @@ int ready_process(Process* t){
 }
 void wait_process(Process* t){
 	if(t->stat == Stopped) return;
-	acquire_spin(&t->waiter.lock);
-	u32 tmp = t->waiter.count++;
-	t->waiter.list[tmp] = GetCurrentProcess();
-	release_spin(&t->waiter.lock);
-	while(t->stat != Stopped){
-		suspend_process();
-	}
+	wait_signal(t->deathsig);
 }
 void suspend_process(){
 	u64 rfl = SaveFlagsCli();	// raise irql to dispatch-level
@@ -418,11 +410,8 @@ void exit_process(){
 	cli();	// raise irql to dispatch-level
 	Process* now = GetCurrentProcess();
 	del_ready(&cpus[now->curcpu].ready, now);
-	acquire_spin(&now->waiter.lock);
-	for(int i = 0; i < now->waiter.count; i++){
-		ready_process(now->waiter.list[i]);
-	}
-	release_spin(&now->waiter.lock);
+	now->stat = Stopped;
+	set_signal(now->deathsig);
     lock_dec(now->href);
     if(now->href == 0) reap_process(now);
 	sched_exit();

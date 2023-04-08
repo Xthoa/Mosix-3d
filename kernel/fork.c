@@ -18,9 +18,14 @@ Process* exec_dupall(char* name){
     ready_process(new);
     return new;
 }
-
-Process* fork_process(){
+Process* exec_dupstdfp(char* name){
     Process* old = GetCurrentProcess();
-    //Process* new = create_process(old->name, );
+    Process* new = ExecuteFileSuspend(name);
+    memcpy(new->htab.table, old->htab.table, sizeof(Handle) * 3);
+    ready_process(new);
+    return new;
+}
 
+Process* fork_process(char* name, int type){
+    return NULL;
 }

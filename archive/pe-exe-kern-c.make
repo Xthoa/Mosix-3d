@@ -10,8 +10,8 @@ CFLAGS = -w -O1 -m64 \
 	-fcf-protection=none \
 	-fno-asynchronous-unwind-tables
 
-%.exe: %.o ../kernel.elf $(LIB)
-	ld $*.o -R ../kernel.elf -o $*.pe -s -e entry \
+%.exe: %.o ../kernel.sym $(LIB)
+	ld $*.o -R ../kernel.sym -o $*.pe -s -e entry \
 		--no-relax --oformat pei-x86-64 -m i386pep \
 		$(LDFLAGS) $(LIB)
 	objcopy $*.pe $*.exe -R .pdata -R .xdata

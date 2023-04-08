@@ -132,6 +132,7 @@ Pedll* LoadPedll64(File* f){
     dll->seccnt = inh->FileHeader.NumberOfSections;
     dll->imgsize = inh->OptionalHeader.SizeOfImage;
     dll->entry = inh->OptionalHeader.AddressOfEntryPoint;
+    dll->idata = inh->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress;
     dll->edata = inh->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT].VirtualAddress;
     dll->name = kheap_clonestr(f->node->name);
     dll->sec = kheap_alloc(sizeof(Pesection) * dll->seccnt);
@@ -230,7 +231,10 @@ Pedll* LocatePedll(char* path){
     if(!node) return NULL;
     acquire_spin(&dlllock);
     for(Pedll* dll = dllroot; dll; dll = dll->next){
-        if(dll->actual == node) return dll;
+        if(dll->actual == node){
+            release_spin(&dlllock);
+            return dll;
+        }
     }
     release_spin(&dlllock);
     return LoadPedll(node);

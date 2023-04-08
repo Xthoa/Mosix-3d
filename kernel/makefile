@@ -30,7 +30,9 @@ objs = entry.o string.o kheap.o pmem.o \
 -include $(objs:.o=.d)
 
 kernel.elf: $(objs) kernel.lds makefile
-	ld -T kernel.lds $(objs) -e KernelBootEntry -o kernel.elf --no-relax
+	ld -T kernel.lds $(objs) -e KernelBootEntry -o kernel.sym --no-relax
+	strip kernel.sym -o kernel.elf
+	cp kernel.sym ..
 	cp kernel.elf ..
 
 .PHONY: clean

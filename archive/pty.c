@@ -75,7 +75,7 @@ int slave_close(Node* node, File* file){
     return 0;
 }
 
-void entry(int status){
+Export void entry(int status){
     if(status == DRIVER_EXIT) return;
 
     Node* devdir = path_walk("/run/dev");

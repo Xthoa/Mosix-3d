@@ -4,7 +4,9 @@
 #include "string.h"
 #include "kheap.h"
 #include "macros.h"
+#include "asm.h"
 
+u32 memtotal;
 PRIVATE Freelist phyflist;
 
 // Init freelist allocator
@@ -13,6 +15,7 @@ void pmem_init(BootArguments* bargs){
     phyflist.max = 112; // 0x700 / 16 = 112
     phyflist.size = 0;
 	init_spinlock(&phyflist.lock);
+	memtotal = 0;
 
     ArdsBlock* ards = bargs->ards;
     for(int i = 0; i < bargs->ardscnt; i++){
@@ -27,6 +30,8 @@ void pmem_init(BootArguments* bargs){
             e->pos = ab->base / PAGE_SIZE;
             e->size = ab->len / PAGE_SIZE;
             phyflist.size ++;
+
+			memtotal += ab->len / PAGE_SIZE;
         }
     }
 }
@@ -60,6 +65,7 @@ PUBLIC void flist_dealloc(Freelist *aloc,u64 addr,u32 size){
 	u32 i,len;
 	for(i = 0; i < aloc->size; i++){
 		Extent* f= aloc->root + i;
+		if(f->pos == addr)bochsdbg();
 		ASSERT_ARG(f->pos != addr, "pos=%q samesize=%b", f->pos, f->size == size);
 		if(f->pos >= addr+size){
 			push_back_array(aloc->root, aloc->size, i, Extent);
@@ -101,7 +107,7 @@ u32 total_avail(Freelist* fl){
 	for(int i = 0; i < fl->size; i++){
 		Extent* e = fl->root + i;
 		total += e->size;
-		printk("%B %q %q\n",i, e->pos, e->size);
+		//printk("%B %q %q\n",i, e->pos, e->size);
 	}
 	release_spin(&fl->lock);
 	return total;

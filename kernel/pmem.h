@@ -16,6 +16,8 @@ typedef struct s_Freelist{
     Spinlock lock;
 } Freelist;
 
+extern u32 memtotal;
+
 u64 flist_alloc(Freelist *aloc,u32 size);
 void flist_dealloc(Freelist* fl,u64 addr, u32 size);
 

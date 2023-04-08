@@ -6,6 +6,7 @@
 *.elf
 *.bxrc
 kernel.elf
+kernel.sym
 archive.tar
 boot.bin
 *.exe

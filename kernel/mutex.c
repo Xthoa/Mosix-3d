@@ -32,32 +32,38 @@ PUBLIC void release_mutex_wakeall(Mutex* m){
     acquire_spin(&m->waiter.lock);
     for(int i = 0; i < m->waiter.count; i++){
         Process* target = m->waiter.list[i];
-        pull_back_array(m->waiter.list, m->waiter.count, 0, Process*);
+        m->waiter.list[i] = NULL;
         ready_process(target);
     }
     m->waiter.count = 0;
     release_spin(&m->waiter.lock);
 }
-PUBLIC void init_dispatcher(Dispatcher* wl, u8 type){
-    wl->type = type;
-    if(type == DISPATCH_TIMER){
-        wl->waiter = GetCurrentProcess();
-    }
-    else{
-        wl->count = 0;
-        wl->list = kheap_alloc(sizeof(Process*) * 16);
-        init_spinlock(&wl->lock);
-    }
+PUBLIC void init_dispatcher(Dispatcher* wl){
+    wl->count = 0;
+    wl->list = kheap_alloc(sizeof(Process*) * 16);
+    init_spinlock(&wl->lock);
 }
 void free_dispatcher(Dispatcher* wl){
-    if(wl->type == DISPATCH_TIMER) return;
     kheap_free(wl->list);
 }
 PUBLIC void init_mutex(Mutex* m){
     m->owner = NULL;
     m->href = 0;
-    init_dispatcher(&m->waiter, DISPATCH_MUTEX);
+    init_dispatcher(&m->waiter);
     m->owned = 1;
+}
+PUBLIC void final_mutex(Mutex* m){
+    free_dispatcher(&m->waiter);
+}
+
+Mutex* create_mutex(){
+    Mutex* m = kheap_alloc(sizeof(Mutex));
+    init_mutex(m);
+    return m;
+}
+void destroy_mutex(Mutex* m){
+    final_mutex(m);
+    kheap_free(m);
 }
 
 void wait_signal(Signal* m){

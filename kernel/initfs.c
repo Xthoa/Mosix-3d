@@ -12,6 +12,7 @@ PRIVATE Superblock* initfs_mount_sb(Node* dev){
 	sb->nops = nops;
 	sb->fops = fops;
 	Node* n = sb->root = alloc_node("/", 0);
+	n->father = n;
 	n->data = ARCHIVE_ADDR;
 	n->sb = sb;
 	n->nops = nops;

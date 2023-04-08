@@ -74,26 +74,23 @@ typedef struct s_Vmspace{
 
 typedef struct s_ActivePedllList ActivePedllList;
 typedef struct s_Process{
-	Dispatcher waiter;
+	Vmspace* vm;	// [ASM 0x00]
+	u64 rsp;	// RSP in context switch [ASM 0x08]
+	vaddr_t rsb;	// stack position 0x10
+	u16 sl;		// reserved stack (by pages) 0x18
 
-	Vmspace* vm;	// [ASM 0x0c]
-	u64 rsp;	// RSP in context switch [ASM 0x14]
-	vaddr_t rsb;	// stack position 0x1c
-	u16 sl;		// reserved stack (by pages) 0x24
+	u8 curcpu;		// currently running on [ASM 0x1a]
+	u8 lovedcpu;	// suggested processor [ASM 0x1b]
+	u16 affinity;	// for every bit 1=allowance 0x1c
 
-	u8 curcpu;		// currently running on [ASM 0x26]
-	u8 lovedcpu;	// suggested processor [ASM 0x27]
-	u16 affinity;	// for every bit 1=allowance 0x28
+	u16 pid;	// 0x1e
+	char* name;	// 0x20
 
-	u16 pid;	// 0x2a
-	char* name;	// 0x2c
-
-	u64 fsbase;	// 0x34
+	u64 fsbase;	// 0x28
 	u64 gsbase;
 
+	Signal* deathsig;
 	HandleTable htab;
-	Dispatcher** waitings;
-	u16 waitcnt;
 
 	u16 jbesp;
 	jmp_buf* jbstack;

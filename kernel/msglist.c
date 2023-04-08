@@ -15,10 +15,11 @@ MessageList* create_msglist(){
     ml->head = 0;
     init_spinlock(&ml->lock);
     ml->waiter = GetCurrentProcess();
-    init_dispatcher(ml, DISPATCH_MSGLIST);
+    ml->sender = create_mutex(ml->sender);
     return ml;
 }
 void destroy_msglist(MessageList* ml){
+    destroy_mutex(ml->sender);
     free_page4k(ml->list, 1);
     kheap_free(ml);
 }
@@ -32,22 +33,20 @@ void init_buffer(FifoBuffer* b, u16 objsz, u16 count, Bool rsig, Bool wsig){
     b->write = 0;
     init_spinlock(&b->lock);
     if(rsig){
-        b->readers = kheap_alloc(sizeof(Signal));
-        init_mutex(b->readers);
+        b->readers = create_mutex(b->readers);
         clear_signal(b->readers);
     }
     else b->readers = NULL;
     if(wsig){
-        b->writers = kheap_alloc(sizeof(Signal));
-        init_mutex(b->writers);
+        b->writers = create_mutex(b->writers);
     }
     else b->writers = NULL;
 }
 void destroy_buffer(FifoBuffer* b){
     if(b->size <= 512) kheap_free(b->buf);
     else free_page4k(b->buf, pages4k(b->size));
-    if(b->readers) free_dispatcher(b->readers);
-    if(b->writers) free_dispatcher(b->writers);
+    if(b->readers) destroy_mutex(b->readers);
+    if(b->writers) destroy_mutex(b->writers);
 }
 
 void do_send_message(MessageList* ml, Message* msg){
@@ -56,19 +55,12 @@ void do_send_message(MessageList* ml, Message* msg){
     u16 pos = ml->head + ml->size++;
     if(pos >= ml->cap) pos -= ml->cap;
     ((Message*)ml->list)[pos] = *msg;
+    if(ml->size == ml->cap) clear_signal(ml->sender);
     release_spin(&ml->lock);
 }
 void do_recv_messsage(MessageList* ml, Message* dst){
     acquire_spin(&ml->lock);
-    if(ml->size == ml->cap){
-        acquire_spin(&ml->dwait.lock);
-        for(int i = 0; i < ml->dwait.count; i++){
-            ready_process(ml->dwait.list[i]);
-            ml->dwait.list[i] = NULL;
-        }
-        ml->dwait.count = 0;
-        release_spin(&ml->dwait.lock);
-    }
+    set_signal(ml->sender);
     u16 pos = ml->head++;
     ml->size --;
     if(ml->head == ml->cap) ml->head = 0;
@@ -77,7 +69,7 @@ void do_recv_messsage(MessageList* ml, Message* dst){
 }
 
 void send_message(MessageList* ml, Message* msg){
-    while(ml->size == ml->cap) wait_msglist(ml);
+    if(ml->size == ml->cap) wait_msglist(ml);
     do_send_message(ml, msg);
 }
 void recv_message(MessageList* ml, Message* dst){
@@ -86,11 +78,7 @@ void recv_message(MessageList* ml, Message* dst){
 }
 
 void wait_msglist(MessageList* ml){
-    acquire_spin(&ml->dwait.lock);
-    u32 pos = ml->dwait.count ++;
-    ml->dwait.list[pos] = GetCurrentProcess();
-    release_spin(&ml->dwait.lock);
-    suspend_process();
+    wait_signal(ml->sender);
 }
 void wait_message(MessageList* ml){
     suspend_process();

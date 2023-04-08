@@ -165,6 +165,7 @@ PUBLIC Node* find_node_from(Node* croot, const char* name){
 }
 PUBLIC Node* path_walk(const char* name){
 	if(name[0] == '/') name = name + 1;
+	if(name[0] == '\0') return root;
 	return find_node_from(root, name);
 }
 
@@ -219,6 +220,7 @@ PUBLIC int lseek(File* f, off_t off, int origin){
 
 void vfs_init(){
     root = alloc_node("", 0);
+	root->father = root;
     create_subnode(root, "config", 0);
     create_subnode(root, "run", 0);
     Node* files = create_subnode(root, "files", 0);

@@ -29,7 +29,7 @@ acquire_mutex:
     mov al, 0
     cli
     .try:
-    xchg byte [rdi+20], al     ; auto #lock by CPU
+    xchg byte [rdi], al     ; auto #lock by CPU
     test al, al
     jz .fail
     pop rdi

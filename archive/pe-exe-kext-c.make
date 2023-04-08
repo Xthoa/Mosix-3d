@@ -1,5 +1,5 @@
 CC = x86_64-w64-mingw32-gcc
-CFLAGS = -w -O1 -m64 -fPIC -shared \
+CFLAGS = -w -O1 -m64 \
 	-mabi=sysv \
 	-I../kernel \
 	-mno-red-zone \
@@ -10,8 +10,8 @@ CFLAGS = -w -O1 -m64 -fPIC -shared \
 	-fcf-protection=none \
 	-fno-asynchronous-unwind-tables
 
-%.dll: %.o ../kernel.sym $(LIB)
-	ld $*.o -R ../kernel.sym -o $*.dll -s -e dlentry \
+%.exe: %.o $(LIB)
+	ld $*.o -o $*.pe -e entry -s \
 		--no-relax --oformat pei-x86-64 -m i386pep \
-		--shared $(LDFLAGS) $(LIB)
-	objcopy $*.dll -R .pdata -R .xdata
+		$(LDFLAGS) $(LIB)
+	objcopy $*.pe $*.exe -R .pdata -R .xdata

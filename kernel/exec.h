@@ -62,3 +62,4 @@ void UnloadDriver(Pedll* dll);
 
 Process* exec_setstdfp(char* name, File* stdfp);
 Process* exec_dupall(char* name);
+Process* exec_dupstdfp(char* name);

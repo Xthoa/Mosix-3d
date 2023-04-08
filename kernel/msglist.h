@@ -24,7 +24,7 @@ typedef struct s_Message{
     uint64_t arg64;
 } Message;
 typedef struct s_MessageList{
-    Dispatcher dwait;
+    Signal* sender;
     Process* waiter;
     u8* list;
     u16 cap;     // list capacity
