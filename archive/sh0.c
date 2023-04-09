@@ -5,7 +5,7 @@
 #include "exec.h"
 #include "proc.h"
 
-Node* cwd;
+Path cwd;
 
 const char* help_prompt = "Shell0 for Mosix 3d (sh0.exe)\n\
 exit - exit shell\n\
@@ -15,31 +15,46 @@ ver - show version of system\n";
 int parsecmd(char* line){
     if(!strncmp(line, "cd ", 3)){
         char* arg = line + 3;
-        if(!strncmp(arg, "..", 2)) cwd = cwd->father;
-        elif(arg[0] == '.') cwd = cwd;
-        else cwd = find_node_from(cwd, arg);
+        Path p = path_walk(arg);
+        if(!p.node){
+            p = cwd;
+            find_node_from(&p, arg);
+            if(!p.node){
+                tty_printf("cd: %s: Not found\n", arg);
+                return -1;
+            }
+        }
+        cwd = p;
     }
     elif(!strncmp(line, "pwd", 3)){
-        for(Node* n = cwd; n != n->father; n = n->father){
-            tty_printf("%s/", cwd->name);
-        }
-        tty_putchar('\n');
+        char* buf = kheap_alloc(64);
+        path_stringify(cwd, buf);
+        tty_printf("%s\n", buf);
+        kheap_free(buf);
     }
     elif(!strncmp(line, "exit", 4)) return 1;
     elif(!strncmp(line, "ver", 3)){
-        tty_puts("Mosix 3d Version 18\n");
+        tty_puts("Mosix 3d Version 19\n");
     }
     elif(!strncmp(line, "help", 4)){
         tty_puts(help_prompt);
     }
     else {
-        Node* n = path_walk(line);
-        if(!n) n = find_node_from(cwd, line);
-        if(n){
-            Process* p = exec_dupstdfp(line);
-            wait_process(p);
+        Path p = path_walk(line);
+        if(!p.node){
+            p = cwd;
+            find_node_from(&p, line);
+            if(!p.node){
+                tty_puts("Unknown command\n");
+                return -1;
+            }
         }
-        else tty_puts("Unknown command\n");
+        char* wp = kheap_alloc(64);
+        path_stringify(p, wp);
+        bochsputs(wp, strlen(wp));
+        Process* c = exec_dupstdfp(wp);
+        kheap_free(wp);
+        wait_process(c);
     }
     return 0;
 }

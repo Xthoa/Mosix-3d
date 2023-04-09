@@ -78,9 +78,9 @@ int slave_close(Node* node, File* file){
 Export void entry(int status){
     if(status == DRIVER_EXIT) return;
 
-    Node* devdir = path_walk("/run/dev");
+    Node* devdir = path_walk("/run/dev").node;
     Node* ptmx = create_subnode(devdir, "ptmx", 0);
-    ptsdir = create_subnode(devdir, "pts", 0);
+    ptsdir = create_subdir(devdir, "pts", 0);
 
     FileOperations* pmop = kheap_alloc(sizeof(FileOperations));
     pmop->open = master_open;

@@ -6,9 +6,11 @@
 PRIVATE Filesystem* type;
 PRIVATE NodeOperations* nops;
 PRIVATE FileOperations* fops;
+PRIVATE Superblock* sb;
 
 PRIVATE Superblock* initfs_mount_sb(Node* dev){
-	Superblock* sb = create_superblock(type);
+	if(sb) return sb;
+	sb = create_superblock(type);
 	sb->nops = nops;
 	sb->fops = fops;
 	Node* n = sb->root = alloc_node("/", 0);
@@ -17,6 +19,10 @@ PRIVATE Superblock* initfs_mount_sb(Node* dev){
 	n->sb = sb;
 	n->nops = nops;
 	n->fops = fops;
+	Node* d = create_subdir(n, ".", NODE_DIRECTORY | NODE_HARDLINK);
+	d->child = n;
+	d = create_subdir(n, "..", NODE_DIRECTORY | NODE_HARDLINK);
+	d->child = n;
 	return sb;
 }
 
@@ -61,6 +67,7 @@ PRIVATE int initfs_write(File* f, char* buf, size_t size){
 void mount_initfs(){
 	type = create_fstype("initfs");
 	type->mount_sb = initfs_mount_sb;
+	sb = NULL;
 
 	nops = kheap_alloc(sizeof(NodeOperations));
 	nops->compare = NULL;

@@ -162,7 +162,7 @@ Export void entry(int status){
     idefops->read = ide_read;
     idefops->write = ide_write;
 
-	Node* dev = path_walk("/run/dev");
+	Node* dev = path_walk("/run/dev").node;
     char* name = "ide0";
     for(int i = 0; i < 4; i++){
 		if(exist[i] == False) continue;

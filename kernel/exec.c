@@ -212,11 +212,11 @@ void InsertDll(Pedll* d){
     release_spin(&dlllock);
 }
 Node* FindPedll(char* path){
-    Node* n = path_walk(path);
+    Node* n = path_walk(path).node;
     if(n) return n;
-    n = path_walk("/files/boot");
-    n = find_node_from(n, path);
-    return n;
+    Path p = path_walk("/files/boot");
+    find_node_from(&p, path);
+    return p.node;
 }
 Pedll* LoadPedll(Node* node){
     File* f = open_node(node, 0);

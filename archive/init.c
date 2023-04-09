@@ -9,8 +9,8 @@
 #include "string.h"
 
 void entry(){
-    Node* n = path_walk("/run");
-    n = create_subnode(n, "dev", 0);
+    Node* n = path_walk("/run").node;
+    n = create_subdir(n, "dev", 0);
 
     LoadDriver("/files/boot/pci.drv");
     LoadDriver("/files/boot/ps2kbd.drv");

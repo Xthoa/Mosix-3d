@@ -206,7 +206,7 @@ void entry(int status){
     kbdfops->read = kbd_read;
     kbdfops->write = kbd_write;
 
-    Node* n = path_walk("/run/dev");
+    Node* n = path_walk("/run/dev").node;
     n = create_subnode(n, "kbd", 0);
     n->fops = kbdfops;
 
