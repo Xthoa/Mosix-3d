@@ -10,6 +10,7 @@
 #include "timer.h"
 #include "bitmap.h"
 #include "exec.h"
+#include "vfs.h"
 
 PRIVATE Bitmap* procmap;
 PUBLIC Vmspace kernmap;
@@ -56,6 +57,8 @@ Process* alloc_process(char* name){
 	p->jbstack = kheap_alloc(sizeof(jmp_buf) * 32);
 	p->deathsig = create_mutex(p->deathsig);
 	clear_signal(p->deathsig);
+	p->cwd.mnt = NULL;
+	p->cwd.node = root;
 	p->href = 1;
 	init_spinlock(&p->rundown);
 	return p;

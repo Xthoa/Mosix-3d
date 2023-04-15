@@ -5,7 +5,7 @@
 
 PRIVATE Filesystem* fsroot;
 PRIVATE Superblock* sbroot;
-PRIVATE Node* root;
+PUBLIC Node* root;
 
 // Raw Node structure alloc/free
 PUBLIC Node* alloc_node(const char* name, u32 flag){
@@ -99,7 +99,7 @@ PUBLIC void destroy_fstype(Filesystem* tp){
 	kheap_free(tp);
 }
 
-// About superblocks
+// About superblocks and mounting
 PUBLIC Superblock* create_superblock(Filesystem* tp){
 	Superblock* sb = kheap_alloc(sizeof(Superblock));
 	sb->mounts = NULL;
@@ -195,7 +195,7 @@ void find_node_in(Path* p, char* name){
 			}
 		}
 		if(!strcmp(o->name, name)){
-			// Already in node tree
+			// Already cached in node tree
 			p->node = o;
 			follow_link(p);
 			return;
@@ -205,6 +205,7 @@ void find_node_in(Path* p, char* name){
 		p->node = NULL;
 		return;
 	}
+	// invoke fs-specific lookup for uncached filenode
 	p->node = r->nops->lookup(r, name);
 }
 void find_node_from(Path* croot, const char* name){
@@ -222,15 +223,26 @@ void find_node_from(Path* croot, const char* name){
 	find_node_in(croot, str + j);
 	kheap_freestr(str);
 }
-Path path_walk(const char* name){
-	Path p = {NULL, root};
-	if(name[0] == '/') name = name + 1;
+Path path_walk_root(const char* name){
+	Path p = {NULL, NULL};
+	if(name[0] == '/'){
+		name = name + 1;
+		p.node = root;
+	}
 	if(name[0] == '\0') return p;
 	find_node_from(&p, name);
 	return p;
 }
+Path path_walk(const char* name){
+	if(name[0] == '/') return path_walk_root(name);
+	Path p = {NULL, NULL};
+	if(name[0] == '\0') return p;
+	else p = GetCurrentProcess()->cwd;
+	find_node_from(&p, name);
+	return p;
+}
 
-void path_stringify(Path path, char* buf){
+void path_stringify(Path path, char* buf, size_t size){
 	Node** nl = kheap_alloc(sizeof(Node*) * 16);
 	Node* n = path.node;
 	int i = 0;
@@ -248,12 +260,32 @@ void path_stringify(Path path, char* buf){
 	while(i > 0){
 		buf[j++] = '/';
 		Node* n = nl[--i];
+		int len = kstrlen(n->name);
+		if(j + len > size){
+			memcpy(buf + j, n->name, size - j);
+			j = size;
+			break;
+		}
 		strcpy(buf + j, n->name);
-		j += kstrlen(n->name);
+		j += len;
 	}
+	// 'size' EXcludes '\0'
 	buf[j] = '\0';
 }
 
+// operations on CWD (cur work dir)
+void getcwd(char* buf, size_t size){
+	Process* p = GetCurrentProcess();
+	path_stringify(p->cwd, buf, size);
+}
+int chdir(char* path){
+	Path p = path_walk(path);
+	if(!p.node) return -1;
+	GetCurrentProcess()->cwd = p;
+	return 0;
+}
+
+// File operations
 PUBLIC File* open(char* path, int flag){
 	Node* node = path_walk(path).node;
 	if(!node) return NULL;

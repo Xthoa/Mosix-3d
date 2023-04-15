@@ -2,7 +2,8 @@ default: archive
 
 arch = test.txt init.exe ttyio.dll pci.drv \
 	ps2kbd.drv idedisk.drv pty.drv vgatty.exe \
-	sh0.exe sprintf.dll mem.exe baseapi.dll
+	sh0.exe sprintf.dll mem.exe baseapi.dll \
+	pwd.exe
 
 ckexe = make -f pe-exe-kern-c.make
 ckdll = make -f pe-dll-kern-c.make
@@ -22,6 +23,7 @@ archive:
 	$(ckexe) vgatty.exe
 	$(ckexe) mem.exe LIB=ttyio.dll
 	$(ckexe) sh0.exe LIB=ttyio.dll
+	$(ckexe) pwd.exe LIB=ttyio.dll
 	tar -cf archive.tar $(arch)
 	cp archive.tar ..
 

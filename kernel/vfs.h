@@ -109,6 +109,8 @@ typedef struct s_Path{
     Node* node;
 } Path;
 
+extern Node* root;
+
 Node* alloc_node(const char* name, u32 flag);
 
 Filesystem* create_fstype(const char* name);
@@ -131,8 +133,11 @@ int mount_on(char* path, char* fstype, Node* dev);
 int unmount_from(char* path);
 
 void find_node_from(Path* croot, const char* name);
+Path path_walk_root(const char* name);
 Path path_walk(const char* name);
-void path_stringify(Path path, char* buf);
+void path_stringify(Path path, char* buf, size_t size);
+void getcwd(char* buf, size_t size);
+int chdir(char* path);
 
 File* open(char* path, int flag);
 File* open_node(Node* node, int flag);

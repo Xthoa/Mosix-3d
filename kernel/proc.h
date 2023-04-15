@@ -85,18 +85,16 @@ typedef struct s_Process{
 
 	u16 pid;	// 0x1e
 	char* name;	// 0x20
-
 	u64 fsbase;	// 0x28
 	u64 gsbase;
 
 	Signal* deathsig;
 	HandleTable htab;
-
 	u16 jbesp;
 	jmp_buf* jbstack;
-
 	PeInfo peinfo;
-	
+	Path cwd;
+
 	volatile u16 stat;
 	u16 href;	// handle reference count
 	u8 env;

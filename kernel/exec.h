@@ -16,6 +16,11 @@
 
 #define SPMSG_CALLBACK 2
 
+#define FORK_SETSTDFP 1
+#define FORK_DUPALL 2
+#define FORK_DUPSTDFP 3
+#define FORK_SETCWD 4
+
 typedef struct s_Pesection{
     paddr_t paddr;  // shared data if shareable; proto data if not.
     vaddr_t voff;
@@ -60,6 +65,10 @@ Process* ExecuteFileSuspend(char* path);
 Pedll* LoadDriver(char* name);
 void UnloadDriver(Pedll* dll);
 
+void fork_setstdfp(Process* new, File* stdfp);
+void fork_dupall(Process* new, Process* old);
+void fork_dupstdfp(Process* new, Process* old);
+void fork_copycwd(Process* new, Process* old);
 Process* exec_setstdfp(char* name, File* stdfp);
 Process* exec_dupall(char* name);
 Process* exec_dupstdfp(char* name);
