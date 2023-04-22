@@ -11,6 +11,25 @@ exit - exit shell\n\
 help - show this help message\n\
 ver - show version of system\n";
 
+Process* self;
+
+Process* execute_new(char* line){
+    int i = 0;
+    while(line[i] != ' ' && line[i] != '\0') i++;
+    char* argv;
+    if(line[i] == '\0') argv = NULL;
+    else {
+        line[i] = '\0';
+        argv = line + i + 1;
+    }
+    Process* p = ExecuteFileSuspend(line);
+    fork_copycwd(p, self);
+    fork_dupstdfp(p, self);
+    if(argv) fork_setargv(p, argv);
+    ready_process(p);
+    return p;
+}
+
 int parsecmd(char* line){
     if(!strncmp(line, "cd ", 3)){
         char* arg = line + 3;
@@ -28,7 +47,7 @@ int parsecmd(char* line){
         tty_puts(help_prompt);
     }
     else{
-        Process* c = exec_dupstdfp(line);
+        Process* c = execute_new(line);
         if(!c){
             tty_printf("%s: Command not found\n", line);
             return -1;
@@ -40,8 +59,8 @@ int parsecmd(char* line){
 
 void entry(){
     tty_puts("Shell0 for Mosix 3d\n");
+    self = GetCurrentProcess();
     create_heap(1);
-    chdir("/files/boot");
     char* line = heap_alloc(64);
     while(True){
         tty_putchar('>');

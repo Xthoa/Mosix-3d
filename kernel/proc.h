@@ -97,6 +97,7 @@ typedef struct s_Process{
 	PeInfo peinfo;
 	Path cwd;
 	Freelist* heap;
+	char* argv;
 
 	volatile u16 stat;
 	u16 href;	// handle reference count

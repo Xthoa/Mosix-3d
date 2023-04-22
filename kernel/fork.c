@@ -1,6 +1,11 @@
 #include "proc.h"
 #include "exec.h"
 #include "handle.h"
+#include "kheap.h"
+
+const char* getargv(){
+    return GetCurrentProcess()->argv;
+}
 
 void fork_setstdfp(Process* new, File* stdfp){
     if(!new) return NULL;
@@ -19,6 +24,10 @@ void fork_dupstdfp(Process* new, Process* old){
 void fork_copycwd(Process* new, Process* old){
     if(!new) return NULL;
     new->cwd = old->cwd;
+}
+void fork_setargv(Process* new, char* argv){
+    if(!new) return NULL;
+    new->argv = kheap_clonestr(argv);
 }
 
 Process* exec_setstdfp(char* name, File* stdfp){
@@ -44,6 +53,14 @@ Process* exec_dupstdfp(char* name){
     Process* new = ExecuteFileSuspend(name);
     if(!new) return NULL;
     fork_dupstdfp(new, old);
+    fork_copycwd(new, old);
+    ready_process(new);
+    return new;
+}
+Process* exec_copycwd(char* name){
+    Process* old = GetCurrentProcess();
+    Process* new = ExecuteFileSuspend(name);
+    if(!new) return NULL;
     fork_copycwd(new, old);
     ready_process(new);
     return new;

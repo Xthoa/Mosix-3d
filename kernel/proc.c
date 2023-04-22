@@ -51,16 +51,17 @@ Process* alloc_process(char* name){
 	pidmap[p->pid] = p;
 	p->stat = Created;
 	p->affinity = 0xffff;
-	p->vm = NULL;
-	p->jbesp = 0;
-	p->lovedcpu=p->curcpu = 0;
 	p->jbstack = kheap_alloc(sizeof(jmp_buf) * 32);
 	p->deathsig = create_mutex(p->deathsig);
 	clear_signal(p->deathsig);
+	p->vm = NULL;
+	p->jbesp = 0;
+	p->lovedcpu=p->curcpu = 0;
 	p->cwd.mnt = NULL;
 	p->cwd.node = root;
 	p->heap = NULL;
 	p->href = 1;
+	p->argv = NULL;
 	init_spinlock(&p->rundown);
 	return p;
 }
@@ -253,6 +254,7 @@ void proc_entry_exit(Process* self){
 	if(self->env == PENV_PE64){
 		kheap_free(self->peinfo.dlls);
 	}
+	if(self->argv) kheap_freestr(self->argv);
 }
 void ProcessEntrySafe(u64 routine){
 	int code;

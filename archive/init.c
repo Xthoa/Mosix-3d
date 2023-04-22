@@ -11,11 +11,12 @@
 void entry(){
     Node* n = path_walk("/run").node;
     n = create_subdir(n, "dev", 0);
+    chdir("/files/boot");
 
-    LoadDriver("/files/boot/pci.drv");
-    LoadDriver("/files/boot/ps2kbd.drv");
-    LoadDriver("/files/boot/idedisk.drv");
-    LoadDriver("/files/boot/pty.drv");
+    LoadDriver("pci.drv");
+    LoadDriver("ps2kbd.drv");
+    LoadDriver("idedisk.drv");
+    LoadDriver("pty.drv");
 
-    ExecuteFile("/files/boot/vgatty.exe");
+    exec_copycwd("vgatty.exe");
 }

@@ -16,7 +16,7 @@ void entry(){
 
     File* kbdf = open("/run/dev/kbd", 0);
 
-    Process* sh0 = exec_setstdfp("/files/boot/sh0.exe", pts);
+    Process* sh0 = exec_setstdfp("sh0.exe", pts);
 
     Signal** list = kheap_alloc(sizeof(Signal*) * 3);
     list[0] = pty->out.readers;
@@ -41,7 +41,7 @@ void entry(){
                 break;
             }
             case 2: {
-                sh0 = exec_setstdfp("/files/boot/sh0.exe", pts);
+                sh0 = exec_setstdfp("sh0.exe", pts);
                 list[2] = sh0->deathsig;
                 break;
             }
