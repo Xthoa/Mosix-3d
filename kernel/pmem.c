@@ -59,6 +59,48 @@ PUBLIC u64 flist_alloc(Freelist *aloc,u32 size){
 	release_spin(&aloc->lock);
 	return addr;
 }
+PUBLIC u64 flist_alloc_from(Freelist *aloc, u64 begin, u32 size){
+	ASSERT_ARG(size != 0, "aloc=%p", aloc);
+	acquire_spin(&aloc->lock);
+	u64 addr = 0;
+	for(int i = 0; i < aloc->size; i++){
+		Extent* f = aloc->root + i;
+		if(f->pos + f->size < begin) continue;
+		if(f->pos < begin){
+			u64 end = f->pos + size;
+			if(end - begin == size){	// ****[**]
+				f->size -= size;
+				addr = begin;
+				break;
+			}
+			if(end - begin > size){		// ***[**]***
+				push_back_array(aloc->root, aloc->size, i, Extent);
+				aloc->size ++;
+				f->size = begin - f->pos;
+				addr = begin;
+				f = f + 1;
+				f->pos = begin + size;
+				f->size = end - f->pos;
+				break;
+			}
+			continue;
+		}
+		if(f->size==size){		// [***]
+			addr = f->pos;
+			pull_back_array(aloc->root, aloc->size, i, Extent);
+			aloc->size --;
+			break;
+		}
+        if(f->size>size){		// [**]****
+			addr = f->pos;
+			f->pos += size;
+			f->size -= size;
+			break;
+		}
+	}
+	release_spin(&aloc->lock);
+	return addr;
+}
 PUBLIC void flist_dealloc(Freelist *aloc,u64 addr,u32 size){
 	ASSERT_ARG(size != 0, "aloc=%p", aloc);
 	acquire_spin(&aloc->lock);
@@ -121,5 +163,6 @@ PUBLIC paddr_t alloc_phy(uint32_t pages){
     return flist_alloc(&phyflist, pages) * PAGE_SIZE;
 }
 PUBLIC void free_phy(paddr_t addr, uint32_t pages){
+	ASSERT_ARG((addr >> 48) == 0, "%p", addr);
     flist_dealloc(&phyflist, addr / PAGE_SIZE, pages);
 }

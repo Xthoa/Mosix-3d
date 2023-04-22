@@ -33,6 +33,7 @@ typedef enum e_ProcStatus{
 #define VM_SHARE 0x10	// shared/shareable - paddr=>sharedptr
 #define VM_SWAP 0x20	// swapped - to be swapped back on acs
 #define VM_NOCOMMIT 0x40	// not commited(reserved) - to be allocated on acs
+#define VM_MAPPED_PADDR 0x80	// check paddr in page table
 
 #define VM_IMAGE 1	// content of image
 #define VM_LIBIMAGE 2	// content of library image
@@ -86,6 +87,7 @@ typedef struct s_Process{
 	u16 pid;	// 0x1e
 	char* name;	// 0x20
 	u64 fsbase;	// 0x28
+	vaddr_t kstack;	// [ASM 0x30]
 	u64 gsbase;
 
 	Signal* deathsig;
@@ -94,6 +96,7 @@ typedef struct s_Process{
 	jmp_buf* jbstack;
 	PeInfo peinfo;
 	Path cwd;
+	Freelist* heap;
 
 	volatile u16 stat;
 	u16 href;	// handle reference count

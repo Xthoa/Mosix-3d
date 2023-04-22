@@ -7,7 +7,9 @@
 
 typedef struct s_Extent{
     u64 pos;
-    u64 size;
+    u64 size : 48;
+    u8 type;
+    u8 flag;
 } Extent;
 typedef struct s_Freelist{
     Extent* root;
@@ -19,6 +21,7 @@ typedef struct s_Freelist{
 extern u32 memtotal;
 
 u64 flist_alloc(Freelist *aloc,u32 size);
+u64 flist_alloc_from(Freelist *aloc, u64 begin, u32 size);
 void flist_dealloc(Freelist* fl,u64 addr, u32 size);
 
 u32 total_avail(Freelist* fl);

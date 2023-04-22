@@ -37,6 +37,7 @@ switch_context:  ;void switch_context(* now, * next);
 
 global switch_context_exit
 switch_context_exit:  ;void switch_context_exit(* now, * next, * now.stat);
+    mov [rdi + 0x08],rsp
     mov rsp,[rsi + 0x08]     ; Process* -> rsp
     mov rax,[rsi]    ; Process* -> vm
     mov rax,[rax]     ; Vmspace* -> cr3
@@ -55,11 +56,23 @@ switch_context_exit:  ;void switch_context_exit(* now, * next, * now.stat);
     ret
 
 global ProcessEntryStub
-extern ProcessEntrySafe
-ProcessEntryStub:    ; rbx=routine
-    sti
+extern ProcessEntry
+ProcessEntryStub:    ; rbx=routine rbp=self
     mov al,byte [fs:0x1a]   ; Process*->curcpu
     mov byte [fs:0x1b],al   ; Process*->lovedcpu
     mov rdi,rbx
-    mov rsi,[fs:0x28]   ; Process*->fsbase (self)
-    jmp ProcessEntrySafe
+    mov rsi,rbp
+    mov rdx,r12
+    mov rcx,r13
+    jmp ProcessEntry
+
+global proc_entry_stack_switch
+extern ProcessEntrySafe
+proc_entry_stack_switch:
+    xchg rsp, [rdi + 0x30]   ; kstack
+    push rdi
+    mov rdi, rsi
+    call ProcessEntrySafe
+    pop rdi
+    xchg rsp, [rdi + 0x30]
+    ret

@@ -10,7 +10,6 @@
 #define HANDLE_FILE 2
 #define HANDLE_MUTEX 3
 #define HANDLE_TIMER 4
-#define HANDLE_HEAP 5
 
 typedef struct s_Handle{
     void* ptr;

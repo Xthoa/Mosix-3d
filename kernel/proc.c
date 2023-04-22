@@ -59,6 +59,7 @@ Process* alloc_process(char* name){
 	clear_signal(p->deathsig);
 	p->cwd.mnt = NULL;
 	p->cwd.node = root;
+	p->heap = NULL;
 	p->href = 1;
 	init_spinlock(&p->rundown);
 	return p;
@@ -146,7 +147,7 @@ Vmarea* find_vmarea(Vmspace* map, vaddr_t vaddr){
 	Vmarea* ret = NULL;
 	for(int i=0; i<map->count; i++){
 		Vmarea* vm = map->areas + i;
-		if(vm->vaddr == vaddr){
+		if(vm->vaddr <= vaddr && vm->vaddr + (vm->pages<<12) > vaddr){
 			ret = vm;
 			break;
 		}
@@ -156,73 +157,49 @@ Vmarea* find_vmarea(Vmspace* map, vaddr_t vaddr){
 }
 
 // memory(stack) resource
-void map_initial_stack(Process* p, vaddr_t lin, paddr_t phy){
-	pml4t_t pml4 = p->vm->pml4t;
-	off_t pml4o = (lin>>39)&0x1ff;	// bit 39-47
-	pdpt_t pdpt = malloc_page4k_attr(1, PGATTR_NOEXEC);
-	memset(pdpt, 0, PAGE_SIZE);
-	set_pml4e(pml4 + pml4o, kernel_v2p(pdpt), PGATTR_USER);
-	off_t pdpto = (lin>>30)&0x1ff;	// bit 30-38
-	pd_t pd = malloc_page4k_attr(1, PGATTR_NOEXEC);
-	memset(pd, 0, PAGE_SIZE);
-	set_pdpte(pdpt + pdpto, kernel_v2p(pd), PGATTR_USER);
-	off_t pdo = (lin>>21)&0x1ff;	// bit 21-29
-	pt_t pt = malloc_page4k_attr(1, PGATTR_NOEXEC);
-	memset(pt, 0, PAGE_SIZE);
-	set_pde(pd + pdo, kernel_v2p(pt), PGATTR_USER);
-	off_t pto = (lin>>12)&0x1ff;	// bit 12-20
-	set_pte(pt + pto, phy, PGATTR_NOEXEC);
+vaddr_t alloc_kstack(Process* p){
+	u64 base = malloc_page4k_attr(1, PGATTR_NOEXEC);
+	return p->rsp = base + PAGE_SIZE;
 }
 void ProcessEntryStub();
 void alloc_stack(Process* t, u16 rsv, u16 commit, vaddr_t top, vaddr_t entry){
 	t->sl = rsv;
 	t->rsb = top - rsv*PAGE_SIZE;
-	t->rsp = top;
 	paddr_t phy = alloc_phy(commit);	// paddr of commited stack
-	paddr_t ptop = phy + commit*PAGE_SIZE;
 	vaddr_t cbase = top - commit*PAGE_SIZE;	// base vaddr of commited stack
-	vaddr_t mbase = top - PAGE_SIZE;	// base vaddr of stack page0
-	if(rsv > commit){
-		insert_vmarea(t->vm, t->rsb, 0, rsv - commit, VM_STACK, VM_RW|VM_NOCOMMIT);
-	}
-	insert_vmarea(t->vm, cbase, phy, commit, VM_STACK, VM_RW);
-	u64* rsp;
-	if(t->vm->ref == 1){
-		map_initial_stack(t, mbase, ptop - PAGE_SIZE);
-		set_mapping(kernel_p2v(ptop - PAGE_SIZE), ptop - PAGE_SIZE, 0);
-		rsp = kernel_p2v(ptop);
-	}
-	else{
+	t->kstack = top;
+	u64* rsp = alloc_kstack(t);
+	if(t->vm->ref != 1){
 		set_mappings(cbase, phy, commit, PGATTR_NOEXEC);
-		rsp = top;
 	}
 	t->rsp -= 0x38;
 	rsp[-1] = ProcessEntryStub;
 	rsp[-2] = entry;
 	rsp[-3] = t;
+	rsp[-4] = phy;
+	rsp[-5] = commit;
 }
 
 // entry stub: memory(code) resource
-Bool scan_del_pgtab(vaddr_t base, vaddr_t stack){
+
+// recursively scan the page table
+// and free the page tables
+void scan_del_pgtab(vaddr_t base){
 	vaddr_t top = base + (base == SELF_REF4_ADDR ? PAGE_SIZE/2 : PAGE_SIZE);
-	Bool res = False, deep = ((base >> 21ull) & 0x7ffffff) == 0x7fbfdfe;
+	Bool deep = ((base >> 21ull) & 0x7ffffff) == 0x7fbfdfe;
 	for(vaddr_t scan = base; scan < top; scan += 8){
-		Bool ms = False;
 		u64 pte = *(u64*)scan;
 		if(pte & 1){
 			if(deep){
 				vaddr_t next = (scan << 9) | CANONICAL_SIGN;
-				ms = scan_del_pgtab(next, stack);
+				scan_del_pgtab(next);
 			}
-			else ms = (pte == stack);
 			u64 phy = get_page_phy(*(pte_t*)&pte);
-			if(!ms) free_phy(phy, 1);
-			res = (res || ms);
+			free_phy(phy, 1);
 		}
 	}
-	return res;
 }
-void proc_entry_init(Process* self){
+void proc_entry_init(Process* self, u64 stkphy, u16 commit){
 	if(self->vm->ref == 1){
 		Vmspace* vm = self->vm;
 		for(int i = 0; i < vm->count; i++){
@@ -237,48 +214,61 @@ void proc_entry_init(Process* self){
 			}
 			else set_mappings(a->vaddr, a->paddr, a->pages, pgattr);
 		}
+		set_mappings(self->kstack - commit*PAGE_SIZE, stkphy, commit, PGATTR_NOEXEC);
 	}
 	if(self->env == PENV_PE64){
 		LoadPedllsForProcess(self);
 	}
 }
 void proc_entry_exit(Process* self){
+	destroy_heap();
 	if(self->vm->ref == 1){
 		Vmspace* vm = self->vm;
 		vaddr_t stack;
 		for(int i = 0; i < vm->count; i++){
 			Vmarea* a = vm->areas + i;
 			if(a->flag & VM_NOCOMMIT) continue;
-			if(a->type == VM_STACK){
-				// commited stack
-				self->rsp = a->paddr;
-				self->sl = a->pages;
-			}
-			elif(a->flag & VM_SHARE){
+			if(a->flag & VM_SHARE){
 				SharedVmarea* sa = a->sharedptr;
 				lock_dec(sa->ref);	// TODO
 			}
+			elif(a->flag & VM_MAPPED_PADDR){
+				for(int i = 0; i < a->pages; i++){
+					paddr_t phy = get_mapped_phy(a->vaddr + i * PAGE_SIZE);
+					free_phy(phy, 1);
+				}
+			}
 			else free_phy(a->paddr, a->pages);
 		}
-		u64 rsp = self->rsb + self->sl * PAGE_SIZE - 1;
-		scan_del_pgtab(SELF_REF4_ADDR, *(u64*)get_mapping_pde(rsp));
+		u64 rsp = self->kstack;
+		while(True){
+			rsp -= PAGE_SIZE;
+			u64 phy = get_mapped_phy(rsp);
+			if(phy == 0) break;
+			free_phy(phy, 1);
+		}
+		scan_del_pgtab(SELF_REF4_ADDR);
 	}
 	free_htab(self);
-	if(self->env == PENV_PE64 || self->env == PENV_DRIVE_PE64){
+	if(self->env == PENV_PE64){
 		kheap_free(self->peinfo.dlls);
 	}
 }
-void ProcessEntrySafe(u64 routine, Process* self){
-	proc_entry_init(self);
+void ProcessEntrySafe(u64 routine){
 	int code;
 	__try{
 		int (*func)()=routine;
 		func();
 	}
 	__catch(code){
-		// printk("Caught exception %d\n",code);
-		// dump_context();
+		printk("Caught exception %d\n",code);
+		dump_context();
 	}
+}
+void ProcessEntry(u64 routine, Process* self, u64 stkphy, u16 commit){
+	proc_entry_init(self, stkphy, commit);
+	sti();
+	proc_entry_stack_switch(self, routine);
 	cli();
 	proc_entry_exit(self);
 	exit_process();
@@ -426,25 +416,9 @@ void reap_process(Process* p){
 	send_message(sysprocml, &msg);
 }
 void do_reap_process(Process* p){
-	vaddr_t slin = p->rsb;
-	pml4t_t pml4t = p->vm->pml4t;
-	off_t pml4o = extract_pml4o_macro(slin);
-	paddr_t pdptp = get_pdpt_phy(pml4t[pml4o]);
-	pdpt_t pdpt = kernel_p2v(pdptp);
-	set_mapping(pdpt, pdptp, 0);
-	off_t pdpto = extract_pdpto_macro(slin);
-	paddr_t pdp = get_pd_phy(pdpt[pdpto]);
-	pd_t pd = kernel_p2v(pdp);
-	set_mapping(pd, pdp, 0);
-	off_t pdo = extract_pdo_macro(slin);
-	paddr_t ptp = get_pt_phy(pd[pdo]);
-	free_phy(pdptp, 1);
-	free_phy(pdp, 1);
-	free_phy(ptp, 1);
 	deref_vmspace(p->vm);
-	paddr_t sphy = p->rsp;
-	u32 sl = p->sl;
-	free_phy(sphy, sl);
+	vaddr_t ks = align_4k(p->rsp);
+	free_page4k(ks, 1);
 	free_process(p);
 }
 

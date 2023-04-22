@@ -1,7 +1,7 @@
 #include "string.h"
 #include "ttyio.h"
 #include "asm.h"
-#include "kheap.h"
+#include "heap.h"
 #include "exec.h"
 #include "proc.h"
 #include "vfs.h"
@@ -40,8 +40,9 @@ int parsecmd(char* line){
 
 void entry(){
     tty_puts("Shell0 for Mosix 3d\n");
+    create_heap(1);
     chdir("/files/boot");
-    char* line = kheap_alloc(64);
+    char* line = heap_alloc(64);
     while(True){
         tty_putchar('>');
         int len = tty_gets(line, 63);

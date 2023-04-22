@@ -43,7 +43,7 @@ void putc(char c){
 		u16 sxbit = 2 * 80;
 		memmove(VRAM,VRAM+80,80*24*2);
 		for(int i=80*24;i<80*25;i++){
-			VRAM[i]=0;
+			VRAM[i]=0x0700;
 		}
 		cursnow-=80;
 	}

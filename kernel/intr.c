@@ -115,35 +115,38 @@ IntHandler void interr0d(IntFrame* f,u64 code){
 	hlt();
 }
 
+Bool pf_selfref(u64 cr2){
+	// check if caused by self-refering
+	off_t pml4o = (cr2 >> 39)&0x1ff;
+	if(pml4o != 510) return False;
+	Process* p = GetCurrentProcess();
+	pml4t_t pml4t = p->vm->pml4t;
+	u64 old = *(u64*)(pml4t + 510);
+	set_pml4e(pml4t + 510, p->vm->cr3, PGATTR_NOEXEC);
+	u64 new = *(u64*)(pml4t + 510);
+	printk("\nPage fault of pml4t[510]\n  old = %q\n  new = %q\n", old, new);
+	return True;
+}
+Bool pf_commitmem(u64 cr2);
+
 Bool pfagain = False;
 u64 lastcr2;
-Bool fixed = False;
-IntHandler void interr0e(IntFrame* f,u64 code){
+IntHandler void interr0e(IntFrame* f, u64 code){
 	u64 cr2 = getcr2();
+	
+	// check infinite #PF loop
 	if(pfagain && cr2 == lastcr2){
-		puts("#PF twice, die.\n");	// avoid endless pf
+		puts("#PF twice, die.\n");
 		hlt();
 	}
-	pfagain = True;
 	lastcr2 = cr2;
 
-	// try to fix it if possible
-	if(fixed) goto next;
-	off_t pml4o = (cr2 >> 39)&0x1ff;
-	if(pml4o == 510){	// self-refering
-		Process* p = GetCurrentProcess();
-		pml4t_t pml4t = p->vm->pml4t;
-		u64 old = *(u64*)(pml4t + 510);
-		set_pml4e(pml4t + 510, p->vm->cr3, PGATTR_NOEXEC);
-		u64 new = *(u64*)(pml4t + 510);
-		printk("\nPage fault of pml4t[510]\n  old = %q\n  new = %q\n", old, new);
-		pfagain = False;
-		fixed = True;
-		return;
-	}
+	// try to fix the problem
+	//if(pf_selfref(cr2)) return;
+	if(pf_commitmem(cr2)) return;
 
 	// impossible, report and die
-	next:
+	pfagain = True;
 	bochsdbg();
 	puts("\nHard exception: #PF Page Fault\n");
 	printk("  at %w:%q\n  to %p\n  rsp %p\n", f->cs, f->rip ,cr2, f->rsp);
@@ -160,7 +163,6 @@ IntHandler void interr0e(IntFrame* f,u64 code){
 	printk("PTE:   %q\n", *p);
 	end:
 	bochsdbg();
-	//wait_reset();
 	hlt();
 }
 
