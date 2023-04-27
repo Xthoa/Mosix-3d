@@ -2,6 +2,7 @@
 #include "vfs.h"
 #include "kheap.h"
 #include "proc.h"
+#include "asm.h"
 
 PRIVATE Filesystem* fsroot;
 PRIVATE Superblock* sbroot;
@@ -50,18 +51,12 @@ PUBLIC void destroy_subnode(Node* child){
     del_node_child(child);
     free_node(child);
 }
-Node* create_subfile(Node* father, char* name, u32 flag){
-	Node* n = create_subnode(father, name, flag);
-	if(n->nops && n->nops->create) n->nops->create(father, n, flag);
-	return n;
-}
 Node* create_subdir(Node* father, char* name, u32 flag){
 	Node* n = create_subnode(father, name, flag | NODE_DIRECTORY);
-	create_subnode(n, ".", NODE_DIRECTORY | NODE_HARDLINK);
-	n->child = n;
-	create_subnode(n, "..", NODE_DIRECTORY | NODE_HARDLINK);
-	n->child = father;
-	if(n->nops && n->nops->mkdir) n->nops->mkdir(father, n, flag);
+	Node* nd = create_subnode(n, ".", NODE_DIRECTORY | NODE_HARDLINK);
+	nd->child = n;
+	nd = create_subnode(n, "..", NODE_DIRECTORY | NODE_HARDLINK);
+	nd->child = father;
 	return n;
 }
 void destroy_subfile(Node* n){
@@ -186,6 +181,13 @@ void follow_link(Path* p){
 }
 void find_node_in(Path* p, char* name){
 	Node* r = p->node;
+	// handle the case of parenting from a mounted root
+	if(!strcmp(name, "..") && r->father == r){
+		if(p->mnt == NULL) return;
+		p->node = p->mnt->mntpoint->father;
+		p->mnt = p->mnt->father;
+		return;
+	}
 	for(Node* o = r->child; o; o = o->next){
 		if(o->nops && o->nops->compare){
 			if(!o->nops->compare(o, name)){
@@ -285,14 +287,34 @@ int chdir(char* path){
 	return 0;
 }
 
+// Directory iteration (aka readdir)
+int nosb_getdents(File* dir, char** buf, size_t count){
+	int i = 0;
+	Node* c;
+	for(c = dir->off; c && (i < count); c = c->next){
+		buf[i++] = kheap_clonestr(c->name);
+	}
+	dir->off = c;
+	return i;
+}
+int getdents(File* dir, char** buf, size_t count){
+	if(dir->node->sb == NULL){
+		return nosb_getdents(dir, buf, count);
+	}
+	if(dir->fops && dir->fops->iterate){
+		return dir->fops->iterate(dir, buf, count);
+	}
+	return -1;
+}
+
 // File operations
 PUBLIC File* open(char* path, int flag){
 	Node* node = path_walk(path).node;
 	if(!node) return NULL;
-	if(node->attr & NODE_DIRECTORY) return NULL;
 	return open_node(node, flag);
 }
 File* open_node(Node* node, int flag){
+	if(((node->attr & NODE_DIRECTORY)==0) ^ ((flag & OPEN_DIR)==0)) return NULL;
 	File* f = kheap_alloc(sizeof(File));
 	f->node = node;
 	f->mode = flag;
@@ -301,6 +323,7 @@ File* open_node(Node* node, int flag){
 	f->fops = node->fops;
 	f->size = node->size;
 	if(f->fops && f->fops->open) f->fops->open(node, f);
+	if((flag & OPEN_DIR) && !node->sb) f->off = node->child;
 	return f;
 }
 PUBLIC void close(File* f){
@@ -336,8 +359,12 @@ PUBLIC int lseek(File* f, off_t off, int origin){
 }
 
 void vfs_init(){
-    root = alloc_node("/", 0);
+    root = alloc_node("/", NODE_DIRECTORY);
 	root->father = root;
+	Node* rd = create_subnode(root, ".", NODE_DIRECTORY | NODE_HARDLINK);
+	rd->child = root;
+	rd = create_subnode(root, "..", NODE_DIRECTORY | NODE_HARDLINK);
+	rd->child = root;
     create_subdir(root, "config", 0);
     create_subdir(root, "run", 0);
     Node* files = create_subdir(root, "files", 0);

@@ -23,6 +23,7 @@ Process* execute_new(char* line){
         argv = line + i + 1;
     }
     Process* p = ExecuteFileSuspend(line);
+    if(!p) return NULL;
     fork_copycwd(p, self);
     fork_dupstdfp(p, self);
     if(argv) fork_setargv(p, argv);
@@ -41,7 +42,7 @@ int parsecmd(char* line){
     }
     elif(!strncmp(line, "exit", 4)) return 1;
     elif(!strncmp(line, "ver", 3)){
-        tty_puts("Mosix 3d Version 20\n");
+        tty_puts("Mosix 3d Version 22\n");
     }
     elif(!strncmp(line, "help", 4)){
         tty_puts(help_prompt);

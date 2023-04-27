@@ -23,6 +23,8 @@ typedef struct s_TarMetadata{
     u64 devmajor;
     u64 devminor;
     char fnprefix[155];
-    u8 pad[12];
+    u32 isize;  // converted size (software use)
+    u8 cflag;
+    u8 pad[7];
 } TarMetadata;
 

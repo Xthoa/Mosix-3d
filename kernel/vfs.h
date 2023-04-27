@@ -16,6 +16,8 @@
 #define SEEK_CUR 1
 #define SEEK_END 2
 
+#define OPEN_DIR 1
+
 struct s_Filesystem;
 struct s_Superblock;
 struct s_File;
@@ -47,9 +49,11 @@ typedef struct s_NodeOperations{
     int (*delete)(Node* child);
     int (*mkdir)(Node* parent, Node* child, int mode);
     int (*rmdir)(Node* child);
-    /*int (*rename)(Inode* inode, Dentry* dentry, Inode* newi, Dentry* newd);
-    int (*getattr)(Dentry* dentry, u64* attr);
-    int (*setattr)(Dentry* dentry, u64* attr);*/
+    /*
+    int (*rename)(Node* node, char* new);
+    int (*getattr)(Node* node, u64* attr);
+    int (*setattr)(Node* node, u64* attr);
+    */
 } NodeOperations;
 
 typedef struct s_File{
@@ -68,6 +72,12 @@ typedef struct s_FileOperations{
     int (*write)(File* file, char* buf, size_t size);
     int (*lseek)(File* file, u64 offset, u64 origin);
     int (*ioctl)(Node* inode, File* file, int cmd, int arg);
+    int (*iterate)(File* file, char** dst, size_t count); // 'readdir' in older linux versions
+    /*
+    int (*read_iter)(...);  // asynchronous read
+    int (*write_iter)(...); // async write
+    int (*poll)(...);   // check whether will be blocked on read/write
+    */
 } FileOperations;
 
 typedef struct s_Filesystem{
@@ -138,6 +148,8 @@ Path path_walk(const char* name);
 void path_stringify(Path path, char* buf, size_t size);
 void getcwd(char* buf, size_t size);
 int chdir(char* path);
+
+int getdents(File* dir, char** buf, size_t count);
 
 File* open(char* path, int flag);
 File* open_node(Node* node, int flag);

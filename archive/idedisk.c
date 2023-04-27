@@ -11,37 +11,43 @@ const u32 ports[]={
 	0x1f0,
 	0x170
 };
+u32 select[]={
+	4, 4
+};
 Bool exist[4];
 
-void wait_ide_io(u32 no){
-	inb(ports[no>>1]+12);
-	inb(ports[no>>1]+12);
-	inb(ports[no>>1]+12);
-	inb(ports[no>>1]+12);
-}
-
 Bool test_existance(u32 no){
+	u8 pre = inb(ports[no>>1] + 7);
+	if(pre == 0xff) return False;
 	outb(ports[no>>1]+2,0);
 	outb(ports[no>>1]+3,0);
 	outb(ports[no>>1]+4,0);
 	outb(ports[no>>1]+5,0);
-	outb(ports[no>>1]+6,0xa0|((no&1)<<4));
+	outb(ports[no>>1]+6,0xa0 | ((no&1)<<4));
     outb(ports[no>>1]+7,0xec);
-	wait_ide_io(no);
+	if(inb(ports[no>>1]+7) == 0) return False;
     while((inb(ports[no>>1]+7) & 0x80) != 0);
 	u8 cl = inb(ports[no>>1]+4);
 	u8 ch = inb(ports[no>>1]+5);
-	if(cl == 0xff && ch == 0xff) return False;
-	if((cl == 0 && ch == 0) || (cl == 0x3c && ch == 0xc3)){
-		return True;
+	if(cl || ch) return False;	// atapi
+	while(pre = inb(ports[no>>1]+7)){
+		if(pre & 1) return False;
+		if(pre & 8){
+			for(int i = 0; i < 256; i++) inw(ports[no>>1]);
+			return True;
+		}
 	}
-	return False;
 }
 
 void wait_ide(u32 no){
 	ASSERT(no < 4);
     ASSERT(exist[no]);
-	while((inb(ports[no>>1]+7)&0x80)!=0);
+	if(select[no>>1] != no){
+		select[no>>1] = no;
+		outb(ports[no>>1] + 6, 0xa0 | (no&1)<<4);
+		for(int i = 0; i < 16; i++) inb(ports[no>>1] + 7);
+	}
+	while((inb(ports[no>>1] + 7) & 0x80) != 0);
 }
 void write_addr28(u32 no,u8 cnt,u32 off){
 	wait_ide(no);

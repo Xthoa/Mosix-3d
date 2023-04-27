@@ -13,7 +13,7 @@ PRIVATE Superblock* initfs_mount_sb(Node* dev){
 	sb = create_superblock(type);
 	sb->nops = nops;
 	sb->fops = fops;
-	Node* n = sb->root = alloc_node("/", 0);
+	Node* n = sb->root = alloc_node("/", NODE_DIRECTORY);
 	n->father = n;
 	n->data = ARCHIVE_ADDR;
 	n->sb = sb;
@@ -37,20 +37,21 @@ u64 oct2bin(char *octa){
 PRIVATE Node* initfs_lookup(Node* parent, char* name){
 	TarMetadata* meta = parent->data;
 	while (!memcmp(meta->ustar, "ustar", 5)) {
-		int size = oct2bin(meta->size);
+		if(meta->isize == 0) meta->isize = oct2bin(meta->size);
 		if (!strcmp(meta->name, name)) {
-			Node* n = create_subnode(parent, name, 0);
-			n->size = size;
+			Node* n = create_subnode(parent, meta->name, 0);
+			n->size = meta->isize;
 			n->data = meta + 1;
 			return n;
 		}
-		int secs = (size + 0x1ff) >> 9;
+		int secs = (meta->isize + 0x1ff) >> 9;
 		meta += secs + 1;
 	}
 	return NULL;
 }
 
 PRIVATE int initfs_open(Node* node, File* file){
+	if(file->mode & OPEN_DIR) file->off = 0;
 	file->data = node->data;
 	return 0;
 }
@@ -62,6 +63,31 @@ PRIVATE int initfs_read(File* f, char* buf, size_t size){
 }
 PRIVATE int initfs_write(File* f, char* buf, size_t size){
 	return -1;
+}
+PRIVATE int initfs_iterate(File* f, char** buf, size_t count){
+	if(count == 0) return 0;
+	Node* p = f->node;
+	int i = 0;
+	if(f->off == 0){
+		buf[i++] = kheap_clonestr(".");
+		f->off ++;
+		if(i == count) return i;
+	}
+	if(f->off == 1){
+		buf[i++] = kheap_clonestr("..");
+		f->off = f->data;
+		if(i == count) return i;
+	}
+	TarMetadata* meta = f->off;
+	while (!memcmp(meta->ustar, "ustar", 5)) {
+		if(i == count) break;
+		if(meta->isize == 0) meta->isize = oct2bin(meta->size);
+		buf[i++] = kheap_clonestr(meta->name);
+		int secs = (meta->isize + 0x1ff) >> 9;
+		meta += secs + 1;
+	}
+	f->off = meta;
+	return i;
 }
 
 void mount_initfs(){
@@ -80,6 +106,7 @@ void mount_initfs(){
 	fops->write = initfs_write;		// delete it when we have FS.RO flag
 	fops->ioctl = NULL;
 	fops->lseek = NULL;
+	fops->iterate = initfs_iterate;
 
 	mount_on("/files/boot", "initfs", NULL);
 }
