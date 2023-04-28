@@ -160,7 +160,9 @@ u32 total_phy_avail(){
 
 // General interface on physical memory management
 PUBLIC paddr_t alloc_phy(uint32_t pages){
-    return flist_alloc(&phyflist, pages) * PAGE_SIZE;
+    paddr_t ret = flist_alloc(&phyflist, pages) * PAGE_SIZE;
+	if(ret == 0) set_errno(ENOMEM);
+	return ret;
 }
 PUBLIC void free_phy(paddr_t addr, uint32_t pages){
 	ASSERT_ARG((addr >> 48) == 0, "%p", addr);

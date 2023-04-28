@@ -84,6 +84,7 @@ PUBLIC Filesystem* find_fstype(const char* name){
 	for(Filesystem* t = fsroot; t; t = t->next){
 		if(!strcmp(t->name, name)) return t;
 	}
+	set_errno(ErrNotExist);
 	return NULL;
 }
 PUBLIC void destroy_fstype(Filesystem* tp){
@@ -157,13 +158,13 @@ PRIVATE void unmount_from_node(Path point){
 }
 PUBLIC int mount_on(char* path, char* fstype, Node* dev){
 	Path point = path_walk(path);
-	if(!point.node) return ErrNull;
+	if(!point.node) return -ENOENT;
 	mount_on_node(point, fstype, dev);
 	return 0;
 }
 PUBLIC int unmount_from(char* path){
 	Path point = path_walk(path);
-	if(!point.node) return ErrNull;
+	if(!point.node) return -ENOENT;
 	unmount_from_node(point);
 	return 0;
 }
@@ -204,6 +205,7 @@ void find_node_in(Path* p, char* name){
 		}
 	}
 	if(!r->nops || !r->nops->lookup){
+		set_errno(ENOENT);
 		p->node = NULL;
 		return;
 	}
@@ -226,19 +228,18 @@ void find_node_from(Path* croot, const char* name){
 	kheap_freestr(str);
 }
 Path path_walk_root(const char* name){
-	Path p = {NULL, NULL};
-	if(name[0] == '/'){
-		name = name + 1;
-		p.node = root;
-	}
+	Path p = {NULL, root};
 	if(name[0] == '\0') return p;
 	find_node_from(&p, name);
 	return p;
 }
 Path path_walk(const char* name){
-	if(name[0] == '/') return path_walk_root(name);
+	if(name[0] == '/') return path_walk_root(name + 1);
 	Path p = {NULL, NULL};
-	if(name[0] == '\0') return p;
+	if(name[0] == '\0'){
+		set_errno(ENOENT);
+		return p;
+	}
 	else p = GetCurrentProcess()->cwd;
 	find_node_from(&p, name);
 	return p;
@@ -282,7 +283,8 @@ void getcwd(char* buf, size_t size){
 }
 int chdir(char* path){
 	Path p = path_walk(path);
-	if(!p.node) return -1;
+	if(!p.node) return -ENOENT;
+	if((p.node->attr & NODE_DIRECTORY) == 0) return -ENOTDIR;
 	GetCurrentProcess()->cwd = p;
 	return 0;
 }
@@ -314,7 +316,11 @@ PUBLIC File* open(char* path, int flag){
 	return open_node(node, flag);
 }
 File* open_node(Node* node, int flag){
-	if(((node->attr & NODE_DIRECTORY)==0) ^ ((flag & OPEN_DIR)==0)) return NULL;
+	if(((node->attr & NODE_DIRECTORY)==0) ^ ((flag & OPEN_DIR)==0)){
+		if(flag & OPEN_DIR) set_errno(ENOTDIR);
+		else set_errno(EISDIR);
+		return NULL;
+	}
 	File* f = kheap_alloc(sizeof(File));
 	f->node = node;
 	f->mode = flag;
@@ -333,29 +339,29 @@ PUBLIC void close(File* f){
 PUBLIC int read(File* f, char* buf, size_t size){
 	if(f->fops && f->fops->read)
 		return f->fops->read(f, buf, size);
-	return -1;
+	return -ENOIMPL;
 }
 PUBLIC int write(File* f, char* buf, size_t size){
 	if(f->fops && f->fops->write)
 		return f->fops->write(f, buf, size);
-	return -1;
+	return -ENOIMPL;
 }
 PUBLIC int lseek(File* f, off_t off, int origin){
 	if(f->fops && f->fops->lseek)
 		return f->fops->lseek(f, off, origin);
 	if(origin == SEEK_SET){
-		if(off > f->size) return -1;
+		if(off > f->size) return -ErrBadSeek;
 		f->off = off;
 	}
 	elif(origin == SEEK_CUR){
-		if(f->off+off > f->size) return -1;
+		if(f->off+off > f->size) return -ErrBadSeek;
 		f->off += off;
 	}
 	elif(origin == SEEK_END){
-		if(off > f->size) return -1;
+		if(off > f->size) return -ErrBadSeek;
 		f->off = f->size - off;
 	}
-	else return -1;
+	else return -ENOIMPL;
 }
 
 void vfs_init(){

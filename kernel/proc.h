@@ -101,6 +101,7 @@ typedef struct s_Process{
 
 	volatile u16 stat;
 	u16 href;	// handle reference count
+	u16 errno;
 	u8 env;
 	Spinlock rundown;
 } Process;

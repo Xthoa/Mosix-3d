@@ -10,15 +10,6 @@
 #define False 0
 #define Bool _Bool
 
-#define Status int
-#define Success 0
-#define ErrNull -1
-#define ErrNotFound -2
-#define ErrReject -3
-#define ErrPermission -4
-#define ErrFull -5
-#define ErrUnknown -6
-
 #define In
 #define Out
 #define InOpt
@@ -57,5 +48,8 @@ typedef u64 Qword, ULONGLONG, ulong, uint64_t, vaddr_t, paddr_t;
 
 #define KERNEL_BASE 0xffffff8000000000
 #define PAGE_SIZE 4096
+
+#undef errno
+#include "errno.h"
 
 #define Export __declspec(dllexport)

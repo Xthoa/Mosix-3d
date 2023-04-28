@@ -66,6 +66,7 @@ Process* alloc_process(char* name){
 	return p;
 }
 void free_process(Process* p){
+	if(!p) set_errno(ErrNull);
 	kheap_free(p->jbstack);
 	destroy_mutex(p->deathsig);
 	pidmap[p->pid] = NULL;
@@ -74,11 +75,12 @@ void free_process(Process* p){
 	kheap_free(p);
 }
 Process* find_process(char* name){
-	for(int i=0;i<MAXPROC;i++){
-		Process* p=pidmap[i];
-		if(!p)continue;
-		if(!strcmp(p->name,name))return p;
+	for(int i = 0; i < MAXPROC; i ++){
+		Process* p = pidmap[i];
+		if(!p) continue;
+		if(!strcmp(p->name, name)) return p;
 	}
+	set_errno(ErrNotExist);
 	return NULL;
 }
 
@@ -115,8 +117,9 @@ void insert_vmarea(Vmspace* map, vaddr_t vaddr, paddr_t paddr, u32 pages, u16 ty
 	for(int i=0; i<map->count; i++, vm++){
 		if(vm->vaddr < vaddr) continue;
 		if(vm->vaddr < vaddr+pages){
+			set_errno(ErrVmareaOverlap);
 			release_spin(&map->alock);
-			__throw(1);
+			return;
 		}
 		push_back_array(map->areas, map->count, i, Vmarea);
 		break;
@@ -141,7 +144,7 @@ void delete_vmarea(Vmspace* map, vaddr_t vaddr){
 	}
 	release_spin(&map->alock);
 	ASSERT_ARG(vaddr, "0x%q", vaddr);
-	__throw(2);
+	set_errno(ErrNoSuchVmarea);
 }
 Vmarea* find_vmarea(Vmspace* map, vaddr_t vaddr){
 	acquire_spin(&map->alock);
@@ -154,6 +157,7 @@ Vmarea* find_vmarea(Vmspace* map, vaddr_t vaddr){
 		}
 	}
 	release_spin(&map->alock);
+	if(!ret) set_errno(ErrNoSuchVmarea);
 	return ret;
 }
 
@@ -378,11 +382,11 @@ void sched_exit(){
 }
 
 int ready_process(Process* t){
-	if(t->stat == Running || t->stat == Ready) return -1;
+	if(t->stat == Running || t->stat == Ready) return -ErrProcReady;
 	Processor* p=cpus;
 	p = choose_cpu_for(t);
 	ReadyList* r = &p->ready;
-	if(r->cnt >= 32)return ErrFull;
+	if(r->cnt >= 32)return -ErrFull;
 	u64 rfl = SaveFlagsCli();	// raise irql to dispatch-level
 	add_ready(t, r);
 	LoadFlags(rfl);

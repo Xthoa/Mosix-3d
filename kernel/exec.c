@@ -16,11 +16,16 @@ vaddr_t randomize_stacktop(){
 }
 
 Freelist drvflist;
-void ePeSeekLfanew(File* f){
+int ePeSeekLfanew(File* f){
     ImageDosHeader* idh = kheap_alloc(sizeof(*idh));
     read(f, idh, sizeof(*idh));
+    if(idh->e_magic != IMAGE_DOS_SIGNATURE){
+        kheap_free(idh);
+        return -ENOEXEC;
+    }
     lseek(f, idh->e_lfanew, SEEK_SET);
     kheap_free(idh);
+    return 0;
 }
 u32 ePeConvertFlags(u32 sch){
     u32 flags = 0;
@@ -44,12 +49,17 @@ vaddr_t ePeDriverRelocation(ImageNtHeaders64* inh){
     return base;
 }
 Process* RunPe64(File *f){
-    ePeSeekLfanew(f);
+    int r = ePeSeekLfanew(f);
+    if(r){
+        set_errno(ENOEXEC);
+        return NULL;
+    }
 
     ImageNtHeaders64* inh = kheap_alloc(sizeof(*inh));
     read(f, inh, sizeof(*inh));
     if(inh->Signature != IMAGE_NT_SIGNATURE){
         kheap_free(inh);
+        set_errno(ENOEXEC);
         return NULL;
     }
 
@@ -112,6 +122,7 @@ Process* ExecuteFileSuspend(char* path){
 }
 Process* ExecuteFile(char* path){
     Process* p = ExecuteFileSuspend(path);
+    if(!p) return NULL;
     ready_process(p);
     return p;
 }

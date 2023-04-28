@@ -18,6 +18,10 @@ void kheap_init(){
 PUBLIC void* kheap_alloc(u32 size){
     size = ((size+4)+7)/8*8;    // align address & size to 8bytes
     vaddr_t addr = flist_alloc(&kheapflist, size);
+    if(addr == 0){
+        set_errno(ENOMEM);
+        return NULL;
+    }
     *(u32*)addr = size;
     return addr + 4;
 }
@@ -36,6 +40,7 @@ PUBLIC void kheap_free(void* ptr){
 PUBLIC void* kheap_clonestr(char* str){
     uint len = strlen(str);
     ushort* ptr = kheap_alloc(len + 3);
+    if(!ptr) return NULL;
     ptr[0] = len;       // use first 2 bytes to store length
     strcpy(ptr + 1, str);
     return ptr + 1;     // and return the addr of the string

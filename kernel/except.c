@@ -10,3 +10,10 @@ jmp_buf popjb(){
 	Process* p = GetCurrentProcess();
 	return p->jbstack[--p->jbesp];
 }
+
+void set_errno(u16 errno){
+	GetCurrentProcess()->errno = errno;
+}
+u16 get_errno(){
+	return GetCurrentProcess()->errno;
+}
