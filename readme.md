@@ -1,10 +1,56 @@
 # Introduction
 
-Mosix 3d, hobby os, grade9.
-x64, smp, acpi, vfs.
-No haribote.
+A hobby OS named "Mosix 3d".
 
-# Versions
+Developed by a student of grade 9.
+
+# Features
+
+- x64 (long mode)
+- SMP (multi-processor)
+- APIC
+- ACPI
+- vfs (including mount & dev)
+- Multitask (multi processes; without threads)
+- Virtual memory management
+- PE executable
+- Almost completely self-written: **NO code from haribote**
+
+# Build and run
+
+## Environment
+
+**Linux**-like systems as well as **WSLs** with
+```
+gcc x86_64-w64-mingw32-gcc nasm bochs
+```
+installed are recommended.
+
+Can't run on windows due to different slashes and commands !!!
+
+e.g. my environment:
+```
+Linux (hidden) 5.10.16.3-microsoft-standard-WSL2 #1 SMP Fri Apr 2 22:23:49 UTC 2021 x86_64 x86_64 x86_64 GNU/Linux
+```
+
+## Download
+
+Download (or clone) this repository into a directory:
+```bash
+git clone https://gitee.com/xthoa/mosix-3d
+```
+
+## Build, run, debug
+
+Run `make` or `make build` in /path/to/repo/ and 
+this will generate `mosix.img` in this directory.
+
+Run `make bochs` or `make bochs-debug` to run or debug 
+in bochs. Same to qemu if installed.
+
+Config can be found in /path/to/repo/makefile.
+
+# Update history
 
 v1 2022-11-1
 复制3c并真机测试通过
@@ -101,3 +147,7 @@ v22 2023-4-27
 
 v22a 2023-4-28
 设计了大部分兼容linux的错误码机制
+
+v23 2023-5-2
+实现mbr分区表驱动，自动对所有块设备检测分区
+完善ls和sh0
