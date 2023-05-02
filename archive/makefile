@@ -31,4 +31,4 @@ archive:
 
 .PHONY: clean
 clean:
-	-rm archive.tar *.o *.pe *.elf
+	-rm archive.tar *.o *.pe *.exe *.drv *.dll *.elf

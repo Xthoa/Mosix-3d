@@ -1,7 +1,7 @@
 CC = x86_64-w64-mingw32-gcc
 CFLAGS = -w -O1 -m64 -fPIC -shared \
 	-mabi=sysv \
-	-I../kernel \
+	-I../kernel/include \
 	-mno-red-zone \
 	-mmanual-endbr \
 	-mcmodel=large \
