@@ -46,7 +46,7 @@ int parsecmd(char* line){
     }
     elif(!strncmp(line, "exit", 4)) return 1;
     elif(!strncmp(line, "ver", 3)){
-        tty_puts("Mosix 3d Version 22a\n");
+        tty_puts("Mosix 3d Version 23\n");
     }
     elif(!strncmp(line, "help", 4)){
         tty_puts(help_prompt);
@@ -58,6 +58,7 @@ int parsecmd(char* line){
             if(r == ENOENT) tty_printf("%s: Command not found\n", line);
             elif(r == ENOEXEC) tty_printf("%s: Exec format error\n", line);
             elif(r == EISDIR) tty_printf("%s: Is a directory\n", line);
+            else tty_printf("%s: Error (%d)\n", line, r);
             return -1;
         }
         wait_process(c);
@@ -73,6 +74,7 @@ void entry(){
     while(True){
         tty_putchar('>');
         int len = tty_gets(line, 63);
+        if(len <= 1) continue;
         line[len - 1] = '\0';
         int r = parsecmd(line);
         if(r == 1) break;

@@ -122,28 +122,27 @@ Mutex* dlock[4];
 
 int ide_open(Node* inode, File* file){
     file->data = inode->data;
+	file->size = 0;
     return 0;
 }
-int ide_read(File* file, char* buf, size_t size){
-    int i = file->data;
+int ide_readsect(GenericDisk* gd, char* buf, size_t off, size_t size){
+    int i = gd->id;
     acquire_mutex(dlock[i]);
-    if((file->off >> 28) || (size >> 8)){
-        read_sects48(i, buf, file->off, size);
+    if((off >> 28) || (size >> 8)){
+        read_sects48(i, buf, off, size);
     }
-    else read_sects28(i, buf, file->off, size);
+    else read_sects28(i, buf, off, size);
     release_mutex(dlock[i]);
-    file->off += size;
     return size;
 }
-int ide_write(File* file, char* buf, size_t size){
-    int i = file->data;
+int ide_writesect(GenericDisk* gd, char* buf, size_t off, size_t size){
+    int i = gd->id;
     acquire_mutex(dlock[i]);
-    if((file->off >> 28) || (size >> 8)){
-        write_sects48(i, buf, file->off, size);
+    if((off >> 28) || (size >> 8)){
+        write_sects48(i, buf, off, size);
     }
-    else write_sects28(i, buf, file->off, size);
+    else write_sects28(i, buf, off, size);
     release_mutex(dlock[i]);
-    file->off += size;
     return size;
 }
 
@@ -165,15 +164,24 @@ Export void entry(int status){
 
     FileOperations* idefops = kheap_alloc_zero(sizeof(FileOperations));
     idefops->open = ide_open;
-    idefops->read = ide_read;
-    idefops->write = ide_write;
+    idefops->read = bdev_read;
+    idefops->write = bdev_write;
+
+	BdevOperations* idebops = kheap_alloc_zero(sizeof(BdevOperations));
+	idebops->readsect = ide_readsect;
+	idebops->writesect = ide_writesect;
 
 	Node* dev = path_walk("/run/dev").node;
     char* name = "ide0";
     for(int i = 0; i < 4; i++){
 		if(exist[i] == False) continue;
-        Node* n = create_subnode(dev, name, 0);
-        n->data = i;
+		GenericDisk* gd = kheap_alloc(sizeof(GenericDisk));
+		gd->secstart = 0;
+		gd->seclen = (u64)-1;
+		gd->id = i;
+		gd->bops = idebops;
+        Node* n = create_subnode(dev, name, NODE_DEVICE | NODE_BLOCKDEV);
+        n->data = gd;
         n->fops = idefops;
         dlock[i] = kheap_alloc(sizeof(Mutex));
         init_mutex(dlock[i]);

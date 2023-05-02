@@ -7,6 +7,10 @@
 #define NODE_MOUNTED 2
 #define NODE_EXPIRED 4  // can be flushed
 #define NODE_HARDLINK 8
+#define NODE_DEVICE 16
+#define NODE_BLOCKDEV 32
+#define NODE_CHARDEV 0x40
+#define NODE_PIPE 0x80
 
 #define SB_NO_HARDLINK 1
 #define SB_READONLY 2
@@ -20,11 +24,26 @@
 
 struct s_Filesystem;
 struct s_Superblock;
+struct s_GenericDisk;
+struct s_BdevOperations;
 struct s_File;
 struct s_FileOperations;
 struct s_Node;
 struct s_NodeOperations;
 struct s_Mount;
+
+typedef struct s_GenericDisk{
+    u64 secstart;
+    u64 seclen;
+    u64 attr;
+    u64 id;
+    struct s_BdevOperations* bops;
+} GenericDisk;
+typedef struct s_BdevOperations{
+    int (*readsect)(GenericDisk* disk, char* buf, size_t off, size_t sectors);
+    int (*writesect)(GenericDisk* disk, char* buf, size_t off, size_t sectors);
+    // int (*getgeo)();
+} BdevOperations;
 
 typedef struct s_Node{
     char* name;     // name of the node
@@ -40,6 +59,7 @@ typedef struct s_Node{
     u64 atime;  // access time
     u64 mtime;  // modify time
     u64 attr;   // attributes
+    u64 ino;    // inode number (when needed)
     u64* data;  // private data of fs
 } Node;
 typedef struct s_NodeOperations{
@@ -150,6 +170,9 @@ void getcwd(char* buf, size_t size);
 int chdir(char* path);
 
 int getdents(File* dir, char** buf, size_t count);
+
+int bdev_read(File* f, char* buf, size_t size);
+int bdev_write(File* f, char* buf, size_t size);
 
 File* open(char* path, int flag);
 File* open_node(Node* node, int flag);

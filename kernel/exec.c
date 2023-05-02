@@ -367,6 +367,7 @@ void MapDriver(Pedll* dll){
 }
 Pedll* LoadDriver(char* name){
     Pedll* dll = LocatePedll(name);
+    if(!dll) return NULL;
     if(dll->relocfix == 0) return dll;
     MapDriver(dll);
     ePeFixRelocation(dll);

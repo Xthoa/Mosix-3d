@@ -207,7 +207,7 @@ void entry(int status){
     kbdfops->write = kbd_write;
 
     Node* n = path_walk("/run/dev").node;
-    n = create_subnode(n, "kbd", 0);
+    n = create_subnode(n, "kbd", NODE_DEVICE | NODE_CHARDEV);
     n->fops = kbdfops;
 
     dkbd = create_process("dkbd-decode", NULL, 4, 4, DEFAULT_STACKTOP, dkbd_entry);

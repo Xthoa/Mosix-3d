@@ -8,7 +8,10 @@
 void entry(){
     create_heap(1);
     char** buf = heap_alloc(256);
-    File* f = open(".", OPEN_DIR);
+    char* dir = ".";
+    char* argv = getargv();
+    if(argv) dir = argv;
+    File* f = open(dir, OPEN_DIR);
     if(!f){
         tty_puts("Unable to open directory\n");
         return;

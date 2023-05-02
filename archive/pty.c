@@ -18,7 +18,7 @@ int master_open(Node* node, File* file){
 
     char* name = kheap_alloc(4);
     hex2str(hex2bcd(pty->slaveno), name);
-    pty->slave = create_subnode(ptsdir, name, 0);
+    pty->slave = create_subnode(ptsdir, name, NODE_DEVICE | NODE_CHARDEV);
     kheap_free(name);
     pty->slave->data = pty;
 
@@ -79,7 +79,7 @@ Export void entry(int status){
     if(status == DRIVER_EXIT) return;
 
     Node* devdir = path_walk("/run/dev").node;
-    Node* ptmx = create_subnode(devdir, "ptmx", 0);
+    Node* ptmx = create_subnode(devdir, "ptmx", NODE_DEVICE | NODE_CHARDEV);
     ptsdir = create_subdir(devdir, "pts", 0);
 
     FileOperations* pmop = kheap_alloc(sizeof(FileOperations));

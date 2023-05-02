@@ -211,6 +211,7 @@ void find_node_in(Path* p, char* name){
 	}
 	// invoke fs-specific lookup for uncached filenode
 	p->node = r->nops->lookup(r, name);
+	if(!p->node) set_errno(ENOENT);
 }
 void find_node_from(Path* croot, const char* name){
 	char* str = kheap_clonestr(name);
@@ -309,6 +310,26 @@ int getdents(File* dir, char** buf, size_t count){
 	return -1;
 }
 
+// Block devices(Generic disks) operations
+PUBLIC int bdev_read(File* f, char* buf, size_t size){
+	GenericDisk* gd = f->data;
+	if(gd->bops && gd->bops->readsect){
+		int sz = gd->bops->readsect(gd, buf, f->off, size);
+		f->off += sz;
+		return sz;
+	}
+	return -ENOIMPL;
+}
+PUBLIC int bdev_write(File* f, char* buf, size_t size){
+	GenericDisk* gd = f->data;
+	if(gd->bops && gd->bops->writesect){
+		int sz = gd->bops->writesect(gd, buf, f->off, size);
+		f->off += sz;
+		return sz;
+	}
+	return -ENOIMPL;
+}
+
 // File operations
 PUBLIC File* open(char* path, int flag){
 	Node* node = path_walk(path).node;
@@ -361,7 +382,8 @@ PUBLIC int lseek(File* f, off_t off, int origin){
 		if(off > f->size) return -ErrBadSeek;
 		f->off = f->size - off;
 	}
-	else return -ENOIMPL;
+	else return -ErrBadSeek;
+	return f->off;
 }
 
 void vfs_init(){

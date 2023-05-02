@@ -16,6 +16,7 @@ void entry(){
     LoadDriver("pci.drv");
     LoadDriver("ps2kbd.drv");
     LoadDriver("idedisk.drv");
+    LoadDriver("mbr.drv");
     LoadDriver("pty.drv");
 
     exec_copycwd("vgatty.exe");
